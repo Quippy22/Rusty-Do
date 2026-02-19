@@ -1,26 +1,51 @@
-use ratatui::layout::Alignment;
-use ratatui::widgets::{Block, Borders};
-use ratatui::{DefaultTerminal, Frame};
+use std::time::Duration;
+
+use crossterm::event::{ self, Event, KeyCode, KeyEventKind };
+use ratatui::DefaultTerminal;
+
+mod ui;
 
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
-    ratatui::run(app)?;
+
+    let mut terminal = ratatui::init();
+    let result = app(&mut terminal);
+
+    ratatui::restore();
+
+    result?;
     Ok(())
 }
 
-fn app(terminal: &mut DefaultTerminal) -> std::io::Result<()> {
+fn app(terminal: &mut DefaultTerminal) -> color_eyre::Result<()> {
+    // Dummy data for overview window
+    let notebooks: Vec<String> = vec!["Work".to_string(), "Personal".to_string()];
+    let entries: Vec<String> = vec!["Task 1".to_string(), "Task 2".to_string()];
+
     loop {
-        terminal.draw(render)?;
-        if crossterm::event::read()?.is_key_press() {
+        terminal.draw( |frame| {
+            ui::overview::render(
+                frame,
+                frame.area(),
+                &notebooks,
+                &entries
+            )
+        })?;
+        if quit()? {
             break Ok(());
         }
     }
 }
 
-fn render(frame: &mut Frame) {
-    let b = Block::default()
-        .title_alignment(Alignment::Center)
-        .title("Main Window")
-        .borders(Borders::ALL);
-    frame.render_widget(b, frame.area());
+fn quit() -> color_eyre::Result<bool> {
+    if event::poll(Duration::from_millis(16))? {
+        if let Event::Key(key) = event::read()? {
+            if key.kind == KeyEventKind::Press {
+                if key.code == KeyCode::Char('q') {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+    Ok(false)
 }
