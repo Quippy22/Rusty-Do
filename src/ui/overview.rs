@@ -13,6 +13,11 @@ pub struct Overview {
     pub state: ListState,
 }
 
+pub enum OverviewAction {
+    DeleteNotebook,
+    RenameNotebook, 
+}
+
 impl Overview {
     // Initialize
     pub fn new(notebooks: Vec<Notebook>) -> Self {
@@ -21,45 +26,6 @@ impl Overview {
             state.select(Some(0));
         }
         Self { notebooks, state }
-    }
-
-    pub fn handle_key(&mut self, key: KeyEvent) {
-        match key.code {
-            KeyCode::Char('j') | KeyCode::Down => {
-                self.next();
-            }
-            KeyCode::Char('k') | KeyCode::Up => {
-                self.previous();
-            }
-            _ => {}
-        }
-    }
-
-    // Movement
-    pub fn next(&mut self) {
-        if self.notebooks.is_empty() {
-            return;
-        }
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i >= self.notebooks.len() - 1 { 0 } else { i + 1 }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-
-    pub fn previous(&mut self) {
-        if self.notebooks.is_empty() {
-            return;
-        }
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i == 0 { self.notebooks.len() - 1 } else { i - 1 }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
     }
 
     // The render logic
@@ -113,5 +79,58 @@ impl Overview {
 
         let preview_text = Paragraph::new(display_text).block(preview_block);
         f.render_widget(preview_text, chunks[1]);
+    }
+}
+
+impl Overview {
+    pub fn handle_key(&mut self, key: KeyEvent) -> Option<OverviewAction> {
+        match key.code {
+            KeyCode::Char('j') | KeyCode::Down => {
+                self.next();
+                None
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                self.previous();
+                None
+            }
+            KeyCode::Char('g') | KeyCode::Home => {
+                self.state.select_first();
+                None
+            }
+            KeyCode::Char('G') | KeyCode::End => {
+                self.state.select_last();
+                None
+            }
+            KeyCode::Char('d')  => Some(OverviewAction::DeleteNotebook),
+            KeyCode::Char('r') => Some(OverviewAction::RenameNotebook),
+            _ => None,
+        }
+    }
+
+    // Movement
+    pub fn next(&mut self) {
+        if self.notebooks.is_empty() {
+            return;
+        }
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.notebooks.len() - 1 { 0 } else { i + 1 }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    pub fn previous(&mut self) {
+        if self.notebooks.is_empty() {
+            return;
+        }
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 { self.notebooks.len() - 1 } else { i - 1 }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
     }
 }
