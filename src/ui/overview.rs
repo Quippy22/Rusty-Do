@@ -7,6 +7,7 @@ use crossterm::event::{ KeyCode, KeyEvent };
 
 use crate::models::notebook::Notebook;
 
+#[derive(Clone)]
 pub struct Overview {
     pub notebooks: Vec<Notebook>,
     pub state: ListState,

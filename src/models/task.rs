@@ -1,5 +1,6 @@
 use crate::models::subtask::Subtask;
 
+#[derive(Clone)]
 pub struct Task {
     pub name: String, 
     pub description: String,

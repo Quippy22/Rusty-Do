@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct Subtask {
     pub name: String,
     pub is_done: bool,
