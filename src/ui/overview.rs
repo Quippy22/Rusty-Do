@@ -43,7 +43,7 @@ impl Overview {
         // List of 'notebooks'
         let notebooks_block = Block::default()
             .title("Notebooks")
-            .title_alignment(Alignment::Center)
+            .title_alignment(Alignment::Left)
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded);
 
@@ -64,32 +64,56 @@ impl Overview {
         f.render_stateful_widget(notebook_list, chunks[0], &mut self.state);
 
         // 3. Right block
-        // Entries (preview)
-        let preview_block = Block::default()
-            .title("Preview")
-            .title_alignment(Alignment::Center)
+        // Details (description & tasks)
+        let right_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+            .split(chunks[1]);
+
+        let selected_idx = self.state.selected().unwrap_or(0);
+        let notebook = self.notebooks.get(selected_idx);
+
+        // -- Description --
+        let description_block = Block::default()
+            .title("Description")
+            .title_alignment(Alignment::Left)
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded);
 
-        let selected_idx = self.state.selected().unwrap_or(0);
+        let description_text = if let Some(n) = notebook {
+            n.description.clone()
+        } else {
+            String::from("No notebook selected.")
+        };
 
-        let display_text = if let Some(notebook) = self.notebooks.get(selected_idx) {
-            if notebook.tasks.is_empty() {
+        let description_paragraph = Paragraph::new(description_text)
+            .block(description_block)
+            .wrap(ratatui::widgets::Wrap { trim: true });
+        f.render_widget(description_paragraph, right_chunks[0]);
+
+        // -- Tasks --
+        let tasks_block = Block::default()
+            .title("Tasks")
+            .title_alignment(Alignment::Left)
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded);
+
+        let task_display = if let Some(n) = notebook {
+            if n.tasks.is_empty() {
                 String::from("No tasks yet.")
             } else {
-                notebook
-                    .tasks
+                n.tasks
                     .iter()
                     .map(|t| format!("• {}", t.name))
                     .collect::<Vec<String>>()
                     .join("\n")
             }
         } else {
-            String::from("No notebook selected.")
+            String::from("")
         };
 
-        let preview_text = Paragraph::new(display_text).block(preview_block);
-        f.render_widget(preview_text, chunks[1]);
+        let tasks_paragraph = Paragraph::new(task_display).block(tasks_block);
+        f.render_widget(tasks_paragraph, right_chunks[1]);
     }
 }
 

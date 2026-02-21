@@ -57,6 +57,7 @@ fn generate_dummy_data() -> Vec<Notebook> {
         }
         dummy_notebooks.push(Notebook {
             name: format!("Notebook {}", n),
+            description: format!("This is the description for Notebook {}. It contains a list of tasks for testing.", n),
             tasks,
         });
     }
