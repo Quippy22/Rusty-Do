@@ -5,6 +5,7 @@ use crate::models::notebook::Notebook;
 use crate::ui::{
     confirm::ConfirmPopup,
     overview::{Overview, OverviewAction},
+    rename::RenamePopup,
 };
 
 #[derive(Clone)]
@@ -16,12 +17,14 @@ pub enum AppMode {
 
     // -- Popups --
     Confirm(ConfirmPopup, PendingAction),
+    Rename(RenamePopup, PendingAction),
     Help, // See keybinds
 }
 
 #[derive(Clone)]
 pub enum PendingAction {
     DeleteNotebook,
+    RenameNotebook,
 }
 
 #[derive(Clone)]
@@ -52,7 +55,7 @@ impl App {
         let area = f.area();
 
         match &self.mode {
-            AppMode::Overview | AppMode::Confirm(_, _) => {
+            m if m.is_popup() || matches!(m, AppMode::Overview) => {
                 self.overview.render(f, area);
             }
 
@@ -62,6 +65,9 @@ impl App {
         // Render ontop
         if let AppMode::Confirm(popup, _) = &self.mode {
             popup.render(f, area);
+        }
+        if let AppMode::Rename(popup, _) = &self.mode {
+            popup.render(f, area)
         }
     }
 
@@ -83,11 +89,13 @@ impl App {
         let current_mode = self.mode.clone();
         match current_mode {
             AppMode::Overview => self.overview_handle_input(key),
+            AppMode::Rename(popup, action) => self.handle_rename(popup, action, key),
             AppMode::Confirm(popup, action) => {
                 if let Some(confirmed) = popup.handle_input(key) {
                     if confirmed {
                         match action {
                             PendingAction::DeleteNotebook => self.delete_selected_notebook(),
+                            _ => {}
                         }
                     }
                     // Reset the mode
@@ -124,7 +132,13 @@ impl App {
 
                     self.mode = AppMode::NotebookDetail;
                 }
-                OverviewAction::RenameNotebook => {}
+                OverviewAction::RenameNotebook => {
+                    if let Some(idx) = self.overview.state.selected() {
+                        let current_name = self.notebooks[idx].name.clone();
+                        let popup = RenamePopup::new(String::from("Rename notebook"), current_name);
+                        self.mode = AppMode::Rename(popup, PendingAction::RenameNotebook);
+                    }
+                }
             }
         }
     }
@@ -146,6 +160,34 @@ impl App {
             }
         }
     }
+
+    pub fn handle_rename(&mut self, mut popup: RenamePopup, action: PendingAction, key: KeyEvent) {
+        match popup.handle_input(key) {
+            Some(true) => {
+                let new_name = popup.input.clone();
+                self.apply_rename(action, new_name);
+            }
+            Some(false) => {
+                self.mode = AppMode::Overview;
+            }
+            None => {
+                self.mode = AppMode::Rename(popup, action);
+            }
+        }
+    }
+
+    pub fn apply_rename(&mut self, action: PendingAction, new_name: String) {
+        match action {
+            PendingAction::RenameNotebook => {
+                if let Some(idx) = self.overview.state.selected() {
+                    self.notebooks[idx].name = new_name;
+                    self.overview.notebooks = self.notebooks.clone()
+                }
+            }
+            _ => {}
+        }
+        self.mode = AppMode::Overview;
+    }
 }
 
 impl AppMode {
@@ -155,6 +197,16 @@ impl AppMode {
             AppMode::Confirm(_, _) => false,
 
             _ => true,
+        }
+    }
+
+    pub fn is_popup(&self) -> bool {
+        match self {
+            AppMode::Rename(_, _) => true,
+            AppMode::Confirm(_, _) => true,
+            AppMode::Help => true,
+
+            _ => false,
         }
     }
 }
