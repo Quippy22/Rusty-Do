@@ -1,15 +1,18 @@
-use crossterm::event::{ KeyEvent, KeyCode };
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 
 use crate::models::notebook::Notebook;
-use crate::ui::{ confirm::ConfirmPopup, overview::{ Overview, OverviewAction } };
+use crate::ui::{
+    confirm::ConfirmPopup,
+    overview::{Overview, OverviewAction},
+};
 
 #[derive(Clone)]
 pub enum AppMode {
     // -- Windows --
-    Overview, // The main window
+    Overview,       // The main window
     NotebookDetail, // See and interact with the tasks of one notebook
-    TaskEditor, // Add/edit a task
+    TaskEditor,     // Add/edit a task
 
     // -- Popups --
     Confirm(ConfirmPopup, PendingAction),
@@ -93,39 +96,33 @@ impl App {
             }
             _ => {}
         }
-
-        // Popup keys
     }
 
     pub fn overview_handle_input(&mut self, key: KeyEvent) {
-        if key.code == KeyCode::Enter {
-            // Save the index before we leave the Overview mode
-            if let Some(idx) = self.overview.state.selected() {
-                self.selected_notebook_idx = idx;
-            }
-
-            self.mode = AppMode::NotebookDetail;
-            return;
-        }
-
         if let Some(action) = self.overview.handle_input(key) {
             match action {
                 OverviewAction::DeleteNotebook => {
                     // Create the popup
                     let popup = ConfirmPopup::new(
                         String::from("Delete notebook"),
-                        String::from(
-                            format!("Are you sure you want to delete {}?", {
-                                if let Some(noteb) = self.overview.state.selected() {
-                                    self.notebooks[noteb].name.clone()
-                                } else {
-                                    String::from("")
-                                }
-                            })
-                        )
+                        String::from(format!("Are you sure you want to delete {}?", {
+                            if let Some(noteb) = self.overview.state.selected() {
+                                self.notebooks[noteb].name.clone()
+                            } else {
+                                String::from("")
+                            }
+                        })),
                     );
                     // Switch mode
                     self.mode = AppMode::Confirm(popup, PendingAction::DeleteNotebook);
+                }
+                OverviewAction::AccessNotebook => {
+                    // Save the index before we leave the Overview mode
+                    if let Some(idx) = self.overview.state.selected() {
+                        self.selected_notebook_idx = idx;
+                    }
+
+                    self.mode = AppMode::NotebookDetail;
                 }
                 OverviewAction::RenameNotebook => {}
             }
@@ -143,7 +140,9 @@ impl App {
             if self.overview.notebooks.is_empty() {
                 self.overview.state.select(None);
             } else if idx >= self.overview.notebooks.len() {
-                self.overview.state.select(Some(self.overview.notebooks.len() - 1));
+                self.overview
+                    .state
+                    .select(Some(self.overview.notebooks.len() - 1));
             }
         }
     }

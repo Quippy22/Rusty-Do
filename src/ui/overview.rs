@@ -16,6 +16,7 @@ pub struct Overview {
 pub enum OverviewAction {
     DeleteNotebook,
     RenameNotebook, 
+    AccessNotebook,
 }
 
 impl Overview {
@@ -102,7 +103,9 @@ impl Overview {
                 None
             }
             KeyCode::Char('d')  => Some(OverviewAction::DeleteNotebook),
+            KeyCode::Enter => Some(OverviewAction::AccessNotebook),
             KeyCode::Char('r') => Some(OverviewAction::RenameNotebook),
+
             _ => None,
         }
     }
