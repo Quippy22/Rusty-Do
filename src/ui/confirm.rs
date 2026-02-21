@@ -18,7 +18,7 @@ impl ConfirmPopup {
         Self { title, message }
     }
 
-    pub fn handle_key(&self, key: KeyEvent) -> Option<bool> {
+    pub fn handle_input(&self, key: KeyEvent) -> Option<bool> {
         match key.code {
             KeyCode::Char('y') | KeyCode::Char('Y') => Some(true),
             _ => Some(false),

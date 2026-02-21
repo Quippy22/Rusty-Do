@@ -68,8 +68,8 @@ impl App {
 }
 
 impl App {
-    // -- Key Handeling --
-    pub fn handle_key(&mut self, key: KeyEvent) {
+    // -- Input Handeling --
+    pub fn handle_input(&mut self, key: KeyEvent) {
         // Global keys
         if key.code == KeyCode::Char('q') && self.mode.can_quit() {
             self.quit();
@@ -79,9 +79,9 @@ impl App {
         // Mode-specific keys
         let current_mode = self.mode.clone();
         match current_mode {
-            AppMode::Overview => self.overview_handle_key(key),
+            AppMode::Overview => self.overview_handle_input(key),
             AppMode::Confirm(popup, action) => {
-                if let Some(confirmed) = popup.handle_key(key) {
+                if let Some(confirmed) = popup.handle_input(key) {
                     if confirmed {
                         match action {
                             PendingAction::DeleteNotebook => self.delete_selected_notebook(),
@@ -97,7 +97,7 @@ impl App {
         // Popup keys
     }
 
-    pub fn overview_handle_key(&mut self, key: KeyEvent) {
+    pub fn overview_handle_input(&mut self, key: KeyEvent) {
         if key.code == KeyCode::Enter {
             // Save the index before we leave the Overview mode
             if let Some(idx) = self.overview.state.selected() {
@@ -108,7 +108,7 @@ impl App {
             return;
         }
 
-        if let Some(action) = self.overview.handle_key(key) {
+        if let Some(action) = self.overview.handle_input(key) {
             match action {
                 OverviewAction::DeleteNotebook => {
                     // Create the popup

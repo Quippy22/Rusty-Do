@@ -83,7 +83,7 @@ impl Overview {
 }
 
 impl Overview {
-    pub fn handle_key(&mut self, key: KeyEvent) -> Option<OverviewAction> {
+    pub fn handle_input(&mut self, key: KeyEvent) -> Option<OverviewAction> {
         match key.code {
             KeyCode::Char('j') | KeyCode::Down => {
                 self.next();

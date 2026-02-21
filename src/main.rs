@@ -30,7 +30,7 @@ fn run(terminal: &mut DefaultTerminal, app: &mut App) -> color_eyre::Result<()> 
 
         if event::poll(Duration::from_millis(16))? {
             if let Event::Key(key) = event::read()? {
-                app.handle_key(key);
+                app.handle_input(key);
             }
         }
 
