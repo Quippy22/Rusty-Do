@@ -2,14 +2,23 @@ use crossterm::event::{ KeyEvent, KeyCode };
 use ratatui::Frame;
 
 use crate::models::notebook::Notebook;
-use crate::ui::overview::{ Overview, OverviewAction };
+use crate::ui::{ confirm::ConfirmPopup, overview::{ Overview, OverviewAction } };
 
 #[derive(Clone)]
 pub enum AppMode {
+    // -- Windows --
     Overview, // The main window
     NotebookDetail, // See and interact with the tasks of one notebook
     TaskEditor, // Add/edit a task
+
+    // -- Popups --
+    Confirm(ConfirmPopup, PendingAction),
     Help, // See keybinds
+}
+
+#[derive(Clone)]
+pub enum PendingAction {
+    DeleteNotebook,
 }
 
 #[derive(Clone)]
@@ -18,6 +27,7 @@ pub struct App {
     pub mode: AppMode,
     pub should_quit: bool,
     pub selected_notebook_idx: usize,
+    pub confirm: Option<ConfirmPopup>,
     // Overview
     pub overview: Overview,
     pub notebooks: Vec<Notebook>,
@@ -25,26 +35,30 @@ pub struct App {
 
 impl App {
     pub fn new(notebooks: Vec<Notebook>) -> Self {
-        let overview = Overview::new(notebooks.clone());
-
         Self {
             mode: AppMode::Overview,
             should_quit: false,
             selected_notebook_idx: 0,
-            overview,
+            overview: Overview::new(notebooks.clone()),
             notebooks,
+            confirm: None,
         }
     }
 
     pub fn render(&mut self, f: &mut Frame) {
         let area = f.area();
 
-        match self.mode {
-            AppMode::Overview => {
+        match &self.mode {
+            AppMode::Overview | AppMode::Confirm(_, _) => {
                 self.overview.render(f, area);
             }
 
             _ => {}
+        }
+
+        // Render ontop
+        if let AppMode::Confirm(popup, _) = &self.mode {
+            popup.render(f, area);
         }
     }
 
@@ -57,16 +71,30 @@ impl App {
     // -- Key Handeling --
     pub fn handle_key(&mut self, key: KeyEvent) {
         // Global keys
-        if key.code == KeyCode::Char('q') && !matches!(self.mode, AppMode::TaskEditor) {
+        if key.code == KeyCode::Char('q') && self.mode.can_quit() {
             self.quit();
             return;
         }
 
         // Mode-specific keys
-        match self.mode {
+        let current_mode = self.mode.clone();
+        match current_mode {
             AppMode::Overview => self.overview_handle_key(key),
+            AppMode::Confirm(popup, action) => {
+                if let Some(confirmed) = popup.handle_key(key) {
+                    if confirmed {
+                        match action {
+                            PendingAction::DeleteNotebook => self.delete_selected_notebook(),
+                        }
+                    }
+                    // Reset the mode
+                    self.mode = AppMode::Overview;
+                }
+            }
             _ => {}
         }
+
+        // Popup keys
     }
 
     pub fn overview_handle_key(&mut self, key: KeyEvent) {
@@ -83,7 +111,21 @@ impl App {
         if let Some(action) = self.overview.handle_key(key) {
             match action {
                 OverviewAction::DeleteNotebook => {
-                    self.delete_selected_notebook();
+                    // Create the popup
+                    let popup = ConfirmPopup::new(
+                        String::from("Delete notebook"),
+                        String::from(
+                            format!("Are you sure you want to delete {}?", {
+                                if let Some(noteb) = self.overview.state.selected() {
+                                    self.notebooks[noteb].name.clone()
+                                } else {
+                                    String::from("")
+                                }
+                            })
+                        )
+                    );
+                    // Switch mode
+                    self.mode = AppMode::Confirm(popup, PendingAction::DeleteNotebook);
                 }
                 OverviewAction::RenameNotebook => {}
             }
@@ -103,6 +145,17 @@ impl App {
             } else if idx >= self.overview.notebooks.len() {
                 self.overview.state.select(Some(self.overview.notebooks.len() - 1));
             }
+        }
+    }
+}
+
+impl AppMode {
+    pub fn can_quit(&self) -> bool {
+        match self {
+            AppMode::TaskEditor => false,
+            AppMode::Confirm(_, _) => false,
+
+            _ => true,
         }
     }
 }
