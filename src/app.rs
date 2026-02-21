@@ -135,7 +135,8 @@ impl App {
                 OverviewAction::RenameNotebook => {
                     if let Some(idx) = self.overview.state.selected() {
                         let current_name = self.notebooks[idx].name.clone();
-                        let popup = RenamePopup::new(String::from("Rename notebook"), current_name);
+                        let popup =
+                            RenamePopup::new(String::from("Rename notebook"), current_name, None);
                         self.mode = AppMode::Rename(popup, PendingAction::RenameNotebook);
                     }
                 }
@@ -164,8 +165,15 @@ impl App {
     pub fn handle_rename(&mut self, mut popup: RenamePopup, action: PendingAction, key: KeyEvent) {
         match popup.handle_input(key) {
             Some(true) => {
-                let new_name = popup.input.clone();
-                self.apply_rename(action, new_name);
+                let names: Vec<String> =
+                    self.notebooks.iter().map(|n| n.name.to_string()).collect();
+                if names.contains(&popup.input) {
+                    popup.warning = "Name is already used.".to_string();
+                    self.mode = AppMode::Rename(popup, action);
+                } else {
+                    let new_name = popup.input.clone();
+                    self.apply_rename(action, new_name);
+                }
             }
             Some(false) => {
                 self.mode = AppMode::Overview;
@@ -195,6 +203,7 @@ impl AppMode {
         match self {
             AppMode::TaskEditor => false,
             AppMode::Confirm(_, _) => false,
+            AppMode::Rename(_, _) => false,
 
             _ => true,
         }
