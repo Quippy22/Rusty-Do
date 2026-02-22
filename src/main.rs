@@ -40,20 +40,35 @@ fn run(terminal: &mut DefaultTerminal, app: &mut App) -> color_eyre::Result<()> 
     }
 }
 
+use crate::models::subtask::Subtask;
+
 fn generate_dummy_data() -> Vec<Notebook> {
     // Dummy data for overview window
-    // 20 notebooks, 10 tasks each
+    // 20 notebooks, 10 tasks each, 5 subtasks each
     let mut dummy_notebooks = Vec::new();
     for n in 1..=20 {
         let mut tasks = Vec::new();
         for t in 1..=10 {
-            tasks.push(Task {
+            let mut subtasks = Vec::new();
+            for s in 1..=5 {
+                subtasks.push(Subtask {
+                    name: format!("Subtask {} (Task {}, Notebook {})", s, t, n),
+                    is_done: s % 2 == 0, // Toggle some as done
+                });
+            }
+            
+            let mut task = Task {
                 name: format!("Task {} (Notebook {})", t, n),
-                description: String::from(""),
+                description: format!("This is the detailed description for Task {}. It has several subtasks to track progress.", t),
                 completion: 0.0,
                 is_done: false,
-                subtasks: Vec::new(),
-            });
+                subtasks,
+            };
+            
+            // Sync initial state
+            task.recalculate_completion();
+            
+            tasks.push(task);
         }
         dummy_notebooks.push(Notebook {
             name: format!("Notebook {}", n),

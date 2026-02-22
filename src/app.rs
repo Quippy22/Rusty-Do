@@ -6,6 +6,7 @@ use crate::ui::{
     confirm::ConfirmPopup,
     overview::{Overview, OverviewAction},
     rename::RenamePopup,
+    notebook_detail::NotebookDetail,
 };
 
 #[derive(Clone)]
@@ -37,6 +38,8 @@ pub struct App {
     // Overview
     pub overview: Overview,
     pub notebooks: Vec<Notebook>,
+    // Notebook Detail
+    pub nb_detail: NotebookDetail,
 }
 
 impl App {
@@ -48,6 +51,7 @@ impl App {
             overview: Overview::new(notebooks.clone()),
             notebooks,
             confirm: None,
+            nb_detail: NotebookDetail::new(None),
         }
     }
 
@@ -57,6 +61,9 @@ impl App {
         match &self.mode {
             m if m.is_popup() || matches!(m, AppMode::Overview) => {
                 self.overview.render(f, area);
+            }
+            AppMode::NotebookDetail => {
+                self.nb_detail.render(f, area);
             }
 
             _ => {}
@@ -128,6 +135,8 @@ impl App {
                     // Save the index before we leave the Overview mode
                     if let Some(idx) = self.overview.state.selected() {
                         self.selected_notebook_idx = idx;
+                        self.nb_detail = NotebookDetail::new(Some(self.notebooks[idx].clone()));
+                        self.mode = AppMode::NotebookDetail;
                     }
 
                     self.mode = AppMode::NotebookDetail;
