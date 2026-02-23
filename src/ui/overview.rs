@@ -43,7 +43,7 @@ impl Overview {
         // List of 'notebooks'
         let notebooks_block = Block::default()
             .title("Notebooks")
-            .title_alignment(Alignment::Left)
+            .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded);
 

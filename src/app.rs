@@ -40,7 +40,6 @@ pub struct App {
     pub last_window: AppMode,
     pub should_quit: bool,
     pub selected_notebook_idx: usize,
-    pub confirm: Option<ConfirmPopup>,
     // Overview
     pub overview: Overview,
     pub notebooks: Vec<Notebook>,
@@ -53,11 +52,8 @@ impl App {
         Self {
             mode: AppMode::Overview,
             last_window: AppMode::Overview,
-            should_quit: false,
-            selected_notebook_idx: 0,
-            overview: Overview::new(notebooks.clone()),
+            should_quit: false, selected_notebook_idx: 0, overview: Overview::new(notebooks.clone()),
             notebooks,
-            confirm: None,
             nb_detail: NotebookDetail::new(None),
         }
     }
@@ -113,11 +109,14 @@ impl App {
                 self.handle_rename(p, a, key);
             }
             AppMode::Confirm(popup, action) => {
-                let (mut p, a) = (popup.clone(), action.clone());
+                let (p, a) = (popup.clone(), action.clone());
                 if let Some(confirmed) = p.handle_input(key) {
                     if confirmed {
                         match a {
                             PendingAction::DeleteNotebook => self.delete_selected_notebook(),
+                            PendingAction::DeleteTask => self.delete_selected_task(),
+                            PendingAction::DeleteSubtask => self.delete_selected_subtask(),
+
                             _ => {}
                         }
                     }
@@ -174,6 +173,7 @@ impl App {
             match action {
                 NotebookViewAction::Exit => {
                     self.mode = AppMode::Overview;
+                    self.overview = Overview::new(self.notebooks.clone());
                     self.last_window = AppMode::Overview;
                 }
                 NotebookViewAction::RenameTask => {
@@ -202,24 +202,39 @@ impl App {
                         }
                     }
                 }
-            }
-        }
-    }
-
-    pub fn delete_selected_notebook(&mut self) {
-        if let Some(idx) = self.overview.state.selected() {
-            // Remove the notebook
-            self.notebooks.remove(idx);
-            // Sync the data
-            self.overview.notebooks = self.notebooks.clone();
-
-            // Adjust selection if needed
-            if self.overview.notebooks.is_empty() {
-                self.overview.state.select(None);
-            } else if idx >= self.overview.notebooks.len() {
-                self.overview
-                    .state
-                    .select(Some(self.overview.notebooks.len() - 1));
+                NotebookViewAction::DeleteTask => {
+                    if let Some(nb) = &self.nb_detail.notebook {
+                        if let Some(idx) = self.nb_detail.selected_task_idx {
+                            let current_name = nb.tasks[idx].name.clone();
+                            let popup = ConfirmPopup::new(
+                                String::from("Delete task"),
+                                String::from(format!(
+                                    "Are you sure you want to delete {}?",
+                                    current_name
+                                )),
+                            );
+                            self.mode = AppMode::Confirm(popup, PendingAction::DeleteTask);
+                        }
+                    }
+                }
+                NotebookViewAction::DeleteSubtask => {
+                    if let Some(nb) = &self.nb_detail.notebook {
+                        if let Some(t_idx) = self.nb_detail.selected_task_idx {
+                            if let Some(s_idx) = self.nb_detail.task_states[t_idx].state.selected()
+                            {
+                                let current_name = nb.tasks[t_idx].subtasks[s_idx].name.clone();
+                                let popup = ConfirmPopup::new(
+                                    String::from("Delete subtask"),
+                                    String::from(format!(
+                                        "Are you sure you want to delete {}?",
+                                        current_name
+                                    )),
+                                );
+                                self.mode = AppMode::Confirm(popup, PendingAction::DeleteSubtask);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -289,6 +304,73 @@ impl App {
             _ => {}
         }
         self.mode = self.last_window.clone();
+    }
+
+    pub fn delete_selected_notebook(&mut self) {
+        if let Some(idx) = self.overview.state.selected() {
+            // Remove the notebook
+            self.notebooks.remove(idx);
+            // Sync the data
+            self.overview = Overview::new(self.notebooks.clone());
+
+            // Adjust selection if needed
+            if self.overview.notebooks.is_empty() {
+                self.overview.state.select(None);
+            } else if idx >= self.overview.notebooks.len() {
+                self.overview
+                    .state
+                    .select(Some(self.overview.notebooks.len() - 1));
+            }
+        }
+    }
+
+    pub fn delete_selected_task(&mut self) {
+        if let Some(nb) = &mut self.nb_detail.notebook {
+            if let Some(idx) = self.nb_detail.selected_task_idx {
+                // 1. Remove the task data
+                nb.tasks.remove(idx);
+
+                // 2. Remove the UI state for that task
+                if idx < self.nb_detail.task_states.len() {
+                    self.nb_detail.task_states.remove(idx);
+                }
+
+                // 3. Adjust selection
+                if nb.tasks.is_empty() {
+                    self.nb_detail.selected_task_idx = None;
+                } else if idx >= nb.tasks.len() {
+                    self.nb_detail.selected_task_idx = Some(nb.tasks.len() - 1);
+                }
+            }
+            // 4. Sync to master list
+            self.notebooks[self.selected_notebook_idx] = nb.clone();
+        }
+    }
+
+    pub fn delete_selected_subtask(&mut self) {
+        if let Some(nb) = &mut self.nb_detail.notebook {
+            if let Some(t_idx) = self.nb_detail.selected_task_idx {
+                if let Some(s_idx) = self.nb_detail.task_states[t_idx].state.selected() {
+                    // 1. Remove the subtask data
+                    nb.tasks[t_idx].subtasks.remove(s_idx);
+
+                    // 2. Recalculate task completion
+                    nb.tasks[t_idx].recalculate_completion();
+
+                    // 3. Adjust selection
+                    let subtask_count = nb.tasks[t_idx].subtasks.len();
+                    if subtask_count == 0 {
+                        self.nb_detail.task_states[t_idx].state.select(None);
+                    } else if s_idx >= subtask_count {
+                        self.nb_detail.task_states[t_idx]
+                            .state
+                            .select(Some(subtask_count - 1));
+                    }
+                }
+            }
+            // 3. Sync to master list
+            self.notebooks[self.selected_notebook_idx] = nb.clone();
+        }
     }
 }
 
