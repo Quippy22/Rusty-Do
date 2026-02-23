@@ -2,11 +2,12 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 
 use crate::models::notebook::Notebook;
+use crate::ui::notebook_detail::NotebookViewAction;
 use crate::ui::{
     confirm::ConfirmPopup,
+    notebook_detail::NotebookDetail,
     overview::{Overview, OverviewAction},
     rename::RenamePopup,
-    notebook_detail::NotebookDetail,
 };
 
 #[derive(Clone)]
@@ -32,6 +33,7 @@ pub enum PendingAction {
 pub struct App {
     // General
     pub mode: AppMode,
+    pub last_window: AppMode,
     pub should_quit: bool,
     pub selected_notebook_idx: usize,
     pub confirm: Option<ConfirmPopup>,
@@ -46,6 +48,7 @@ impl App {
     pub fn new(notebooks: Vec<Notebook>) -> Self {
         Self {
             mode: AppMode::Overview,
+            last_window: AppMode::Overview,
             should_quit: false,
             selected_notebook_idx: 0,
             overview: Overview::new(notebooks.clone()),
@@ -59,22 +62,27 @@ impl App {
         let area = f.area();
 
         match &self.mode {
-            m if m.is_popup() || matches!(m, AppMode::Overview) => {
-                self.overview.render(f, area);
-            }
-            AppMode::NotebookDetail => {
-                self.nb_detail.render(f, area);
+            AppMode::Overview => self.overview.render(f, area),
+            AppMode::NotebookDetail => self.nb_detail.render(f, area),
+
+            m if m.is_popup() => {
+                // Render the window in the background
+                match &self.last_window {
+                    AppMode::Overview => self.overview.render(f, area),
+                    AppMode::NotebookDetail => self.nb_detail.render(f, area),
+
+                    _ => {}
+                }
+                // Render the popup ontop
+                match &self.mode {
+                    AppMode::Confirm(popup, _) => popup.render(f, area),
+                    AppMode::Rename(popup, _) => popup.render(f, area),
+
+                    _ => {}
+                }
             }
 
             _ => {}
-        }
-
-        // Render ontop
-        if let AppMode::Confirm(popup, _) = &self.mode {
-            popup.render(f, area);
-        }
-        if let AppMode::Rename(popup, _) = &self.mode {
-            popup.render(f, area)
         }
     }
 
@@ -96,6 +104,7 @@ impl App {
         let current_mode = self.mode.clone();
         match current_mode {
             AppMode::Overview => self.overview_handle_input(key),
+            AppMode::NotebookDetail => self.notebook_detail_handle_input(key),
             AppMode::Rename(popup, action) => self.handle_rename(popup, action, key),
             AppMode::Confirm(popup, action) => {
                 if let Some(confirmed) = popup.handle_input(key) {
@@ -137,6 +146,7 @@ impl App {
                         self.selected_notebook_idx = idx;
                         self.nb_detail = NotebookDetail::new(Some(self.notebooks[idx].clone()));
                         self.mode = AppMode::NotebookDetail;
+                        self.last_window = AppMode::NotebookDetail;
                     }
 
                     self.mode = AppMode::NotebookDetail;
@@ -148,6 +158,17 @@ impl App {
                             RenamePopup::new(String::from("Rename notebook"), current_name, None);
                         self.mode = AppMode::Rename(popup, PendingAction::RenameNotebook);
                     }
+                }
+            }
+        }
+    }
+
+    pub fn notebook_detail_handle_input(&mut self, key: KeyEvent) {
+        if let Some(action) = self.nb_detail.handle_input(key) {
+            match action {
+                NotebookViewAction::Exit => {
+                    self.mode = AppMode::Overview;
+                    self.last_window = AppMode::Overview;
                 }
             }
         }
