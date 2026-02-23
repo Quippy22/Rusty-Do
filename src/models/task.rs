@@ -40,7 +40,8 @@ impl Task {
         }
 
         let done_count = self.subtasks.iter().filter(|s| s.is_done).count();
-        self.completion = (done_count as f32 / self.subtasks.len() as f32) * 100.0;
+        let percentage = (done_count as f32 / self.subtasks.len() as f32) * 100.0;
+        self.completion = (percentage * 10.0).round() / 10.0;
 
         // If completion reaches 100%, the task is done
         self.is_done = self.completion == 100.0;
