@@ -26,7 +26,11 @@ pub enum AppMode {
 #[derive(Clone)]
 pub enum PendingAction {
     DeleteNotebook,
+    DeleteTask,
+    DeleteSubtask,
     RenameNotebook,
+    RenameTask,
+    RenameSubtask,
 }
 
 #[derive(Clone)]
@@ -100,22 +104,24 @@ impl App {
             return;
         }
 
-        // Mode-specific keys
-        let current_mode = self.mode.clone();
-        match current_mode {
+        // Mode-specific keys (pattern matching to avoid cloning the entire mode)
+        match &self.mode {
             AppMode::Overview => self.overview_handle_input(key),
             AppMode::NotebookDetail => self.notebook_detail_handle_input(key),
-            AppMode::Rename(popup, action) => self.handle_rename(popup, action, key),
+            AppMode::Rename(popup, action) => {
+                let (p, a) = (popup.clone(), action.clone());
+                self.handle_rename(p, a, key);
+            }
             AppMode::Confirm(popup, action) => {
-                if let Some(confirmed) = popup.handle_input(key) {
+                let (mut p, a) = (popup.clone(), action.clone());
+                if let Some(confirmed) = p.handle_input(key) {
                     if confirmed {
-                        match action {
+                        match a {
                             PendingAction::DeleteNotebook => self.delete_selected_notebook(),
                             _ => {}
                         }
                     }
-                    // Reset the mode
-                    self.mode = AppMode::Overview;
+                    self.mode = self.last_window.clone();
                 }
             }
             _ => {}
@@ -170,6 +176,32 @@ impl App {
                     self.mode = AppMode::Overview;
                     self.last_window = AppMode::Overview;
                 }
+                NotebookViewAction::RenameTask => {
+                    if let Some(nb) = &self.nb_detail.notebook {
+                        if let Some(idx) = self.nb_detail.selected_task_idx {
+                            let current_name = nb.tasks[idx].name.clone();
+                            let popup =
+                                RenamePopup::new(String::from("Rename task"), current_name, None);
+                            self.mode = AppMode::Rename(popup, PendingAction::RenameTask);
+                        }
+                    }
+                }
+                NotebookViewAction::RenameSubtask => {
+                    if let Some(nb) = &self.nb_detail.notebook {
+                        if let Some(t_idx) = self.nb_detail.selected_task_idx {
+                            if let Some(s_idx) = self.nb_detail.task_states[t_idx].state.selected()
+                            {
+                                let current_name = nb.tasks[t_idx].subtasks[s_idx].name.clone();
+                                let popup = RenamePopup::new(
+                                    String::from("Rename subtask"),
+                                    current_name,
+                                    None,
+                                );
+                                self.mode = AppMode::Rename(popup, PendingAction::RenameSubtask);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -195,20 +227,36 @@ impl App {
     pub fn handle_rename(&mut self, mut popup: RenamePopup, action: PendingAction, key: KeyEvent) {
         match popup.handle_input(key) {
             Some(true) => {
-                let names: Vec<String> =
-                    self.notebooks.iter().map(|n| n.name.to_string()).collect();
-                if names.contains(&popup.input) {
-                    popup.warning = "Name is already used.".to_string();
-                    self.mode = AppMode::Rename(popup, action);
-                } else {
-                    let new_name = popup.input.clone();
-                    self.apply_rename(action, new_name);
+                match action {
+                    PendingAction::RenameNotebook => {
+                        // Check for duplicate names
+                        let name_exists = self.notebooks.iter().any(|n| n.name == popup.input);
+                        if name_exists {
+                            popup.warning = "Name is already used.".to_string();
+                            self.mode = AppMode::Rename(popup, action);
+                            return;
+                        }
+                        // Apply the change
+                        let new_name = popup.input.clone();
+                        self.apply_rename(action, new_name);
+                    }
+                    PendingAction::RenameTask => {
+                        let new_name = popup.input.clone();
+                        self.apply_rename(action, new_name);
+                    }
+                    PendingAction::RenameSubtask => {
+                        let new_name = popup.input.clone();
+                        self.apply_rename(action, new_name);
+                    }
+
+                    _ => {}
                 }
             }
             Some(false) => {
-                self.mode = AppMode::Overview;
+                self.mode = self.last_window.clone();
             }
             None => {
+                // Keep the mode updated with the current popup state (typing)
                 self.mode = AppMode::Rename(popup, action);
             }
         }
@@ -222,9 +270,25 @@ impl App {
                     self.overview.notebooks = self.notebooks.clone()
                 }
             }
+            PendingAction::RenameTask => {
+                if let Some(notebook) = &mut self.nb_detail.notebook {
+                    if let Some(idx) = self.nb_detail.selected_task_idx {
+                        notebook.tasks[idx].name = new_name;
+                    }
+                }
+            }
+            PendingAction::RenameSubtask => {
+                if let Some(notebook) = &mut self.nb_detail.notebook {
+                    if let Some(t_idx) = self.nb_detail.selected_task_idx {
+                        if let Some(s_idx) = self.nb_detail.task_states[t_idx].state.selected() {
+                            notebook.tasks[t_idx].subtasks[s_idx].name = new_name;
+                        }
+                    }
+                }
+            }
             _ => {}
         }
-        self.mode = AppMode::Overview;
+        self.mode = self.last_window.clone();
     }
 }
 

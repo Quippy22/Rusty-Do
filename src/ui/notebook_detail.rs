@@ -18,6 +18,8 @@ pub struct NotebookDetail {
 
 pub enum NotebookViewAction {
     Exit,
+    RenameTask,
+    RenameSubtask,
 }
 
 impl NotebookDetail {
@@ -163,6 +165,10 @@ impl NotebookDetail {
                 }
                 None
             }
+            
+            // Renames
+            KeyCode::Char('R') => Some(NotebookViewAction::RenameTask),
+            KeyCode::Char('r') => Some(NotebookViewAction::RenameSubtask),
 
             _ => None,
         }
