@@ -1,3 +1,4 @@
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -13,6 +14,10 @@ pub struct NotebookDetail {
     pub task_states: Vec<TaskColumnState>,
     pub selected_task_idx: Option<usize>,
     pub scroll_offset: usize,
+}
+
+pub enum NotebookViewAction {
+    Exit,
 }
 
 impl NotebookDetail {
@@ -91,6 +96,122 @@ impl NotebookDetail {
                         &mut self.task_states[task_idx],
                     );
                 }
+            }
+        }
+    }
+}
+
+impl NotebookDetail {
+    // -- Input Handling --
+    pub fn handle_input(&mut self, key: KeyEvent) -> Option<NotebookViewAction> {
+        let task_count = if let Some(nb) = &self.notebook {
+            nb.tasks.len()
+        } else {
+            0
+        };
+
+        match key.code {
+            KeyCode::Esc => Some(NotebookViewAction::Exit),
+
+            // Horizontal Navigation
+            KeyCode::Char('h') | KeyCode::Left => {
+                if let Some(selected) = self.selected_task_idx {
+                    if selected > 0 {
+                        self.selected_task_idx = Some(selected - 1);
+                    } else if task_count > 0 {
+                        self.selected_task_idx = Some(task_count - 1);
+                    }
+                }
+                None
+            }
+            KeyCode::Char('l') | KeyCode::Right => {
+                if let Some(selected) = self.selected_task_idx {
+                    if selected < task_count - 1 {
+                        self.selected_task_idx = Some(selected + 1);
+                    } else if task_count > 0 {
+                        self.selected_task_idx = Some(0);
+                    }
+                }
+                None
+            }
+
+            // Vertical Navigation
+            KeyCode::Char('j') | KeyCode::Down => {
+                self.next_subtask();
+                None
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                self.previous_subtask();
+                None
+            }
+
+            // Toggles
+            KeyCode::Char('x') => {
+                if let Some(selected) = self.selected_task_idx {
+                    let subtask_idx = self.task_states[selected].state.selected();
+                    if let (Some(nb), Some(s_idx)) = (&mut self.notebook, subtask_idx) {
+                        nb.tasks[selected].toggle_subtask(s_idx);
+                    }
+                }
+                None
+            }
+            KeyCode::Char('X') => {
+                if let Some(selected) = self.selected_task_idx {
+                    if let Some(nb) = &mut self.notebook {
+                        nb.tasks[selected].toggle_task();
+                    }
+                }
+                None
+            }
+
+            _ => None,
+        }
+    }
+
+    fn next_subtask(&mut self) {
+        if let Some(selected) = self.selected_task_idx {
+            let subtask_count = self
+                .notebook
+                .as_ref()
+                .map(|n| n.tasks[selected].subtasks.len())
+                .unwrap_or(0);
+            if subtask_count > 0 {
+                let state = &mut self.task_states[selected].state;
+                let i = match state.selected() {
+                    Some(i) => {
+                        if i >= subtask_count - 1 {
+                            0
+                        } else {
+                            i + 1
+                        }
+                    }
+                    None => 0,
+                };
+                state.select(Some(i));
+            }
+        }
+    }
+
+    fn previous_subtask(&mut self) {
+        if let Some(selected) = self.selected_task_idx {
+            let subtask_count = self
+                .notebook
+                .as_ref()
+                .map(|n| n.tasks[selected].subtasks.len())
+                .unwrap_or(0);
+            if subtask_count > 0 {
+                let state = &mut self.task_states[selected].state;
+                let i = match state.selected() {
+                    Some(i) => {
+                        if i == 0 {
+                            subtask_count - 1
+                        } else {
+                            i - 1
+                        }
+                    }
+                    None => 0,
+                };
+                state.select(Some(i));
             }
         }
     }
