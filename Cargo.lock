@@ -13,6 +13,7 @@ dependencies = [
  "ratatui",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]
