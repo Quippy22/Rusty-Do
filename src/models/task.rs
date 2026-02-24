@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::models::subtask::Subtask;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Task {
     pub name: String,
     pub description: String,
