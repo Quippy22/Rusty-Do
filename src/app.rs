@@ -2,6 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 
 use crate::models::notebook::Notebook;
+use crate::storage::{paths::FileSystem, persistence::Persistence};
 use crate::ui::notebook_detail::NotebookViewAction;
 use crate::ui::{
     confirm::ConfirmPopup,
@@ -38,6 +39,7 @@ pub struct App {
     // General
     pub mode: AppMode,
     pub last_window: AppMode,
+    pub storage: Persistence,
     pub should_quit: bool,
     pub selected_notebook_idx: usize,
     // Overview
@@ -48,11 +50,24 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(notebooks: Vec<Notebook>) -> Self {
+    pub fn new(filesystem: FileSystem) -> Self {
+        let storage = Persistence::new(filesystem);
+        let index = storage.validate_and_sync_index().unwrap_or_default();
+
+        let mut notebooks: Vec<Notebook> = Vec::new();
+        for meta in index.notebooks {
+            if let Ok(nb) = storage.load_notebook(&meta.id) {
+                notebooks.push(nb);
+            }
+        }
+
         Self {
             mode: AppMode::Overview,
             last_window: AppMode::Overview,
-            should_quit: false, selected_notebook_idx: 0, overview: Overview::new(notebooks.clone()),
+            should_quit: false,
+            selected_notebook_idx: 0,
+            storage,
+            overview: Overview::new(notebooks.clone()),
             notebooks,
             nb_detail: NotebookDetail::new(None),
         }
@@ -172,6 +187,10 @@ impl App {
         if let Some(action) = self.nb_detail.handle_input(key) {
             match action {
                 NotebookViewAction::Exit => {
+                    // Save before exiting
+                    if let Some(nb) = &self.nb_detail.notebook {
+                        let _ = self.storage.save_notebook(nb);
+                    }
                     self.mode = AppMode::Overview;
                     self.overview = Overview::new(self.notebooks.clone());
                     self.last_window = AppMode::Overview;
@@ -255,16 +274,10 @@ impl App {
                         let new_name = popup.input.clone();
                         self.apply_rename(action, new_name);
                     }
-                    PendingAction::RenameTask => {
+                    _ => {
                         let new_name = popup.input.clone();
                         self.apply_rename(action, new_name);
                     }
-                    PendingAction::RenameSubtask => {
-                        let new_name = popup.input.clone();
-                        self.apply_rename(action, new_name);
-                    }
-
-                    _ => {}
                 }
             }
             Some(false) => {
@@ -282,13 +295,17 @@ impl App {
             PendingAction::RenameNotebook => {
                 if let Some(idx) = self.overview.state.selected() {
                     self.notebooks[idx].name = new_name;
-                    self.overview.notebooks = self.notebooks.clone()
+                    // Save renamed notebook
+                    let _ = self.storage.save_notebook(&self.notebooks[idx]);
+                    self.overview.notebooks = self.notebooks.clone();
                 }
             }
             PendingAction::RenameTask => {
                 if let Some(notebook) = &mut self.nb_detail.notebook {
                     if let Some(idx) = self.nb_detail.selected_task_idx {
                         notebook.tasks[idx].name = new_name;
+                        // Save modified notebook
+                        let _ = self.storage.save_notebook(notebook);
                     }
                 }
             }
@@ -297,6 +314,8 @@ impl App {
                     if let Some(t_idx) = self.nb_detail.selected_task_idx {
                         if let Some(s_idx) = self.nb_detail.task_states[t_idx].state.selected() {
                             notebook.tasks[t_idx].subtasks[s_idx].name = new_name;
+                            // Save modified notebook
+                            let _ = self.storage.save_notebook(notebook);
                         }
                     }
                 }
@@ -308,9 +327,18 @@ impl App {
 
     pub fn delete_selected_notebook(&mut self) {
         if let Some(idx) = self.overview.state.selected() {
-            // Remove the notebook
+            let notebook_id = self.notebooks[idx].id.clone();
+            // Remove the file from disk
+            let path = self.storage.fs.get_notebook_path(&notebook_id);
+            let _ = std::fs::remove_file(path);
+
+            // Remove the notebook from memory
             self.notebooks.remove(idx);
-            // Sync the data
+
+            // Sync the index
+            let _ = self.storage.validate_and_sync_index();
+
+            // Sync the UI
             self.overview = Overview::new(self.notebooks.clone());
 
             // Adjust selection if needed
@@ -342,7 +370,9 @@ impl App {
                     self.nb_detail.selected_task_idx = Some(nb.tasks.len() - 1);
                 }
             }
-            // 4. Sync to master list
+            // 4. Save to disk
+            let _ = self.storage.save_notebook(nb);
+            // 5. Sync to master list
             self.notebooks[self.selected_notebook_idx] = nb.clone();
         }
     }
@@ -368,7 +398,9 @@ impl App {
                     }
                 }
             }
-            // 3. Sync to master list
+            // 4. Save to disk
+            let _ = self.storage.save_notebook(nb);
+            // 5. Sync to master list
             self.notebooks[self.selected_notebook_idx] = nb.clone();
         }
     }

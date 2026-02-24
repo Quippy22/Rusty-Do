@@ -5,6 +5,7 @@ use color_eyre::Result;
 use color_eyre::eyre::OptionExt;
 use directories::ProjectDirs;
 
+#[derive(Clone)]
 pub struct FileSystem {
     pub data_dir: PathBuf,
     pub notebooks_dir: PathBuf,

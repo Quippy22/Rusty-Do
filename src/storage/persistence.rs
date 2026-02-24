@@ -19,6 +19,7 @@ pub struct StorageIndex {
     pub notebooks: Vec<NotebookMetadata>,
 }
 
+#[derive(Clone)]
 pub struct Persistence {
     pub fs: FileSystem,
 }
