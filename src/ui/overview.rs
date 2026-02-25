@@ -7,11 +7,13 @@ use ratatui::{
 };
 
 use crate::models::notebook::Notebook;
+use crate::ui::inspect_window::{InspectMode, Inspector};
 
 #[derive(Clone)]
 pub struct Overview {
     pub notebooks: Vec<Notebook>,
     pub state: ListState,
+    pub inspector: Inspector,
 }
 
 pub enum OverviewAction {
@@ -27,20 +29,39 @@ impl Overview {
         if !notebooks.is_empty() {
             state.select(Some(0));
         }
-        Self { notebooks, state }
+
+        let mut inspector = Inspector::new(
+            InspectMode::View,
+            String::from("No Selection"),
+            String::from("Select a notebook to see its details."),
+            Vec::new(),
+            String::from("Tasks"),
+        );
+
+        let mut overview = Self {
+            notebooks,
+            state,
+            inspector,
+        };
+
+        overview.sync_inspector();
+        overview
     }
 
     // The render logic
-    pub fn render(&mut self, f: &mut Frame, area: Rect) {
-        // 1. Define the split
-        let chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .spacing(1)
-            .split(area);
+    pub fn render(&mut self, f: &mut Frame, area: Rect, show_detail: bool) {
+        let (list_area, detail_area) = if show_detail {
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .spacing(1)
+                .split(area);
+            (chunks[0], Some(chunks[1]))
+        } else {
+            (area, None)
+        };
 
-        // 2. Left block
-        // List of 'notebooks'
+        // 1. Render List
         let notebooks_block = Block::default()
             .title("Notebooks")
             .title_alignment(Alignment::Center)
@@ -61,65 +82,44 @@ impl Overview {
             .highlight_symbol("> ")
             .highlight_style(style::palette::tailwind::ROSE.c500)
             .block(notebooks_block);
-        f.render_stateful_widget(notebook_list, chunks[0], &mut self.state);
+        f.render_stateful_widget(notebook_list, list_area, &mut self.state);
 
-        // 3. Right block
-        // Details (description & tasks)
-        let right_chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-            .split(chunks[1]);
+        // 2. Render Details
+        if let Some(da) = detail_area {
+            self.render_detail(f, da);
+        }
+    }
 
-        let selected_idx = self.state.selected().unwrap_or(0);
-        let notebook = self.notebooks.get(selected_idx);
-
-        // -- Description --
-        let description_block = Block::default()
-            .title("Description")
-            .title_alignment(Alignment::Left)
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded);
-
-        let description_text = if let Some(n) = notebook {
-            n.description.clone()
+    pub fn render_detail(&mut self, f: &mut Frame, area: Rect) {
+        if self.notebooks.is_empty() {
+            let empty_block = Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .title("Details")
+                .title_alignment(Alignment::Left);
+            f.render_widget(
+                Paragraph::new("No notebooks found.").block(empty_block),
+                area,
+            );
         } else {
-            String::from("No notebook selected.")
-        };
+            self.inspector.render(f, area);
+        }
+    }
 
-        let description_paragraph = Paragraph::new(description_text)
-            .block(description_block)
-            .wrap(ratatui::widgets::Wrap { trim: true });
-        f.render_widget(description_paragraph, right_chunks[0]);
-
-        // -- Tasks --
-        let tasks_block = Block::default()
-            .title("Tasks")
-            .title_alignment(Alignment::Left)
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded);
-
-        let task_display = if let Some(n) = notebook {
-            if n.tasks.is_empty() {
-                String::from("No tasks yet.")
-            } else {
-                n.tasks
-                    .iter()
-                    .map(|t| format!("• {}", t.name))
-                    .collect::<Vec<String>>()
-                    .join("\n")
+    fn sync_inspector(&mut self) {
+        if let Some(idx) = self.state.selected() {
+            if let Some(notebook) = self.notebooks.get(idx) {
+                self.inspector.title_input = notebook.name.clone();
+                self.inspector.desc_input = notebook.description.clone();
+                self.inspector.list_items = notebook.tasks.iter().map(|t| t.name.clone()).collect();
             }
-        } else {
-            String::from("")
-        };
-
-        let tasks_paragraph = Paragraph::new(task_display).block(tasks_block);
-        f.render_widget(tasks_paragraph, right_chunks[1]);
+        }
     }
 }
 
 impl Overview {
     pub fn handle_input(&mut self, key: KeyEvent) -> Option<OverviewAction> {
-        match key.code {
+        let action = match key.code {
             KeyCode::Char('j') | KeyCode::Down => {
                 self.next();
                 None
@@ -130,10 +130,12 @@ impl Overview {
             }
             KeyCode::Char('g') | KeyCode::Home => {
                 self.state.select_first();
+                self.sync_inspector();
                 None
             }
             KeyCode::Char('G') | KeyCode::End => {
                 self.state.select_last();
+                self.sync_inspector();
                 None
             }
             KeyCode::Char('d') => Some(OverviewAction::DeleteNotebook),
@@ -143,12 +145,14 @@ impl Overview {
                 let index: usize = (c.to_digit(10).unwrap_or(0) - 1) as usize;
                 if self.notebooks.len() > index {
                     self.state.select(Some(index));
+                    self.sync_inspector();
                 }
                 Some(OverviewAction::AccessNotebook)
             }
 
             _ => None,
-        }
+        };
+        action
     }
 
     // Movement
@@ -167,6 +171,7 @@ impl Overview {
             None => 0,
         };
         self.state.select(Some(i));
+        self.sync_inspector();
     }
 
     pub fn previous(&mut self) {
@@ -184,5 +189,6 @@ impl Overview {
             None => 0,
         };
         self.state.select(Some(i));
+        self.sync_inspector();
     }
 }

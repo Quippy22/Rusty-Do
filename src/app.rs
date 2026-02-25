@@ -77,13 +77,13 @@ impl App {
         let area = f.area();
 
         match &self.mode {
-            AppMode::Overview => self.overview.render(f, area),
+            AppMode::Overview => self.overview.render(f, area, true),
             AppMode::NotebookDetail => self.nb_detail.render(f, area),
 
             m if m.is_popup() => {
                 // Render the window in the background
                 match &self.last_window {
-                    AppMode::Overview => self.overview.render(f, area),
+                    AppMode::Overview => self.overview.render(f, area, true),
                     AppMode::NotebookDetail => self.nb_detail.render(f, area),
 
                     _ => {}

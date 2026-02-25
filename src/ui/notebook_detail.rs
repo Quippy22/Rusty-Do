@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     widgets::{Block, BorderType, Borders},
 };
 
@@ -64,9 +64,9 @@ impl NotebookDetail {
         let vertical_margins = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Percentage(5),  // Top margin
-                Constraint::Percentage(90), // Middle content area
-                Constraint::Percentage(5),  // Bottom margin
+                Constraint::Percentage(10), // Top margin
+                Constraint::Percentage(80), // Middle content area
+                Constraint::Percentage(10), // Bottom margin
             ])
             .split(inner_window);
 
@@ -85,6 +85,7 @@ impl NotebookDetail {
         let horizontal_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(constraints)
+            .flex(Flex::Start)
             .split(content_area);
 
         // 5. Final Render (borrowing notebook immutably ONLY here)
@@ -300,7 +301,6 @@ impl NotebookDetail {
             constraints.push(Constraint::Length(w));
         }
 
-        constraints.push(Constraint::Min(0));
         (count, constraints)
     }
 
