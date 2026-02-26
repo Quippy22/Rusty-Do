@@ -61,7 +61,7 @@ impl Persistence {
 }
 
 impl Persistence {
-    // Scans the notebooks sub-directory, verifies notebook files, and syncs index.json
+    /// Scans the notebooks sub-directory, verifies notebook files, and syncs index.json
     pub fn validate_and_sync_index(&self) -> Result<StorageIndex> {
         let mut index = self.load_index().unwrap_or_default();
         let entries = fs::read_dir(&self.fs.notebooks_dir)?;
@@ -100,8 +100,25 @@ impl Persistence {
             }
         }
 
+        // 3. Sort by last_opened (Descending: newest first)
+        index
+            .notebooks
+            .sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
+
         self.save_index(&index)?;
         Ok(index)
+    }
+
+    pub fn update_last_opened(&self, id: &str) -> Result<()> {
+        let mut index = self.load_index()?;
+        if let Some(meta) = index.notebooks.iter_mut().find(|m| m.id == id) {
+            meta.last_opened = Local::now();
+            index
+                .notebooks
+                .sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
+            self.save_index(&index)?;
+        }
+        Ok(())
     }
 
     fn verify_notebook_file(&self, path: &PathBuf) -> Result<Notebook> {

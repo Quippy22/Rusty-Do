@@ -394,7 +394,7 @@ impl App {
 
                 let _ = self.storage.save_notebook(nb);
                 self.notebooks[self.selected_notebook_idx] = nb.clone();
-                
+
                 // Re-initialize task states to handle new subtask counts
                 self.nb_detail.task_states = (0..nb.tasks.len())
                     .map(|_| crate::ui::task_column::TaskColumnState::new())
@@ -409,7 +409,10 @@ impl App {
         let mut notebooks = Vec::new();
 
         // Save the ID of the currently selected notebook to restore selection later
-        let current_id = self.overview.state.selected()
+        let current_id = self
+            .overview
+            .state
+            .selected()
             .and_then(|idx| self.notebooks.get(idx))
             .map(|nb| nb.id.clone());
 
@@ -465,27 +468,14 @@ impl App {
         description: String,
         task_names: Vec<String>,
     ) {
-        use crate::models::task::Task;
         if let Some(idx) = self.overview.state.selected() {
+            let notebook_id = self.notebooks[idx].id.clone();
             let nb = &mut self.notebooks[idx];
             nb.name = name;
             nb.description = description;
 
-            // Sync task names (simple rebuild for now)
-            if nb.tasks.len() != task_names.len() {
-                nb.tasks = task_names
-                    .into_iter()
-                    .map(|t| Task {
-                        name: t,
-                        description: String::new(),
-                        completion: 0.0,
-                        is_done: false,
-                        subtasks: Vec::new(),
-                    })
-                    .collect();
-            }
-
             let _ = self.storage.save_notebook(nb);
+            let _ = self.storage.update_last_opened(&notebook_id);
             self.refresh_notebooks_list();
         }
     }
@@ -511,13 +501,18 @@ impl App {
                 OverviewAction::AccessNotebook => {
                     // Save the index before we leave the Overview mode
                     if let Some(idx) = self.overview.state.selected() {
-                        self.selected_notebook_idx = idx;
-                        self.nb_detail = NotebookDetail::new(Some(self.notebooks[idx].clone()));
+                        let notebook_id = self.notebooks[idx].id.clone();
+
+                        // Update time and re-sort immediately
+                        let _ = self.storage.update_last_opened(&notebook_id);
+                        self.refresh_notebooks_list();
+
+                        // Access the now top-sorted notebook
+                        let new_idx = self.selected_notebook_idx;
+                        self.nb_detail = NotebookDetail::new(Some(self.notebooks[new_idx].clone()));
                         self.mode = AppMode::NotebookDetail;
                         self.last_window = AppMode::NotebookDetail;
                     }
-
-                    self.mode = AppMode::NotebookDetail;
                 }
                 OverviewAction::RenameNotebook => {
                     if let Some(idx) = self.overview.state.selected() {
@@ -540,9 +535,10 @@ impl App {
                     // Save before exiting
                     if let Some(nb) = &self.nb_detail.notebook {
                         let _ = self.storage.save_notebook(nb);
+                        let _ = self.storage.update_last_opened(&nb.id);
                     }
+                    self.refresh_notebooks_list();
                     self.mode = AppMode::Overview;
-                    self.overview = Overview::new(self.notebooks.clone());
                     self.last_window = AppMode::Overview;
                 }
                 NotebookViewAction::RenameTask => {
