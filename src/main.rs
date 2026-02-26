@@ -15,12 +15,12 @@ fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
 
     let mut terminal = ratatui::init();
+
     let fs = FileSystem::new()?;
     let mut app = App::new(fs);
     let result = run(&mut terminal, &mut app);
 
     ratatui::restore();
-
     result?;
     Ok(())
 }
@@ -31,7 +31,9 @@ fn run(terminal: &mut DefaultTerminal, app: &mut App) -> color_eyre::Result<()> 
 
         if event::poll(Duration::from_millis(16))? {
             if let Event::Key(key) = event::read()? {
-                app.handle_input(key);
+                if key.kind == event::KeyEventKind::Press {
+                    app.handle_input(key);
+                }
             }
         }
 
