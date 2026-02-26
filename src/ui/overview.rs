@@ -20,6 +20,8 @@ pub enum OverviewAction {
     DeleteNotebook,
     RenameNotebook,
     AccessNotebook,
+    AddNotebook,
+    EditNotebook,
 }
 
 impl Overview {
@@ -30,7 +32,7 @@ impl Overview {
             state.select(Some(0));
         }
 
-        let mut inspector = Inspector::new(
+        let inspector = Inspector::new(
             InspectMode::View,
             String::from("No Selection"),
             String::from("Select a notebook to see its details."),
@@ -106,7 +108,7 @@ impl Overview {
         }
     }
 
-    fn sync_inspector(&mut self) {
+    pub fn sync_inspector(&mut self) {
         if let Some(idx) = self.state.selected() {
             if let Some(notebook) = self.notebooks.get(idx) {
                 self.inspector.title_input = notebook.name.clone();
@@ -140,6 +142,8 @@ impl Overview {
             }
             KeyCode::Char('d') => Some(OverviewAction::DeleteNotebook),
             KeyCode::Char('r') => Some(OverviewAction::RenameNotebook),
+            KeyCode::Char('a') => Some(OverviewAction::AddNotebook),
+            KeyCode::Char('e') => Some(OverviewAction::EditNotebook),
             KeyCode::Enter => Some(OverviewAction::AccessNotebook),
             KeyCode::Char(c @ '1'..='5') => {
                 let index: usize = (c.to_digit(10).unwrap_or(0) - 1) as usize;

@@ -22,6 +22,10 @@ pub enum NotebookViewAction {
     RenameSubtask,
     DeleteTask,
     DeleteSubtask,
+    AddTaskBefore,
+    AddTaskAfter,
+    EditTask,
+    InspectTask,
 }
 
 impl NotebookDetail {
@@ -170,12 +174,19 @@ impl NotebookDetail {
             }
 
             // Renames
-            KeyCode::Char('R') => Some(NotebookViewAction::RenameTask),
-            KeyCode::Char('r') => Some(NotebookViewAction::RenameSubtask),
+            KeyCode::Char('r') => Some(NotebookViewAction::RenameTask),
+            KeyCode::Char('e') => Some(NotebookViewAction::RenameSubtask),
+            KeyCode::Char('E') => Some(NotebookViewAction::EditTask),
+
+            // Adds
+            KeyCode::Char('a') => Some(NotebookViewAction::AddTaskAfter),
+            KeyCode::Char('i') => Some(NotebookViewAction::AddTaskBefore),
 
             // Deletes
             KeyCode::Char('D') => Some(NotebookViewAction::DeleteTask),
             KeyCode::Char('d') => Some(NotebookViewAction::DeleteSubtask),
+
+            KeyCode::Enter => Some(NotebookViewAction::InspectTask),
 
             _ => None,
         }

@@ -11,12 +11,15 @@ use crate::ui::{
     rename::RenamePopup,
 };
 
+use crate::ui::inspect_window::{Inspector, InspectorAction};
+
 #[derive(Clone)]
 pub enum AppMode {
     // -- Windows --
     Overview,       // The main window
     NotebookDetail, // See and interact with the tasks of one notebook
     TaskEditor,     // Add/edit a task
+    Add(PendingAction),
 
     // -- Popups --
     Confirm(ConfirmPopup, PendingAction),
@@ -32,6 +35,12 @@ pub enum PendingAction {
     RenameNotebook,
     RenameTask,
     RenameSubtask,
+    AddNotebook,
+    EditNotebook,
+    AddTaskBefore,
+    AddTaskAfter,
+    EditTask,
+    InspectTask,
 }
 
 #[derive(Clone)]
@@ -47,7 +56,11 @@ pub struct App {
     pub notebooks: Vec<Notebook>,
     // Notebook Detail
     pub nb_detail: NotebookDetail,
+    // Inspector (Add/Edit Mode)
+    pub inspector: Inspector,
 }
+
+use ratatui::layout::{Constraint, Direction, Layout};
 
 impl App {
     pub fn new(filesystem: FileSystem) -> Self {
@@ -70,15 +83,39 @@ impl App {
             overview: Overview::new(notebooks.clone()),
             notebooks,
             nb_detail: NotebookDetail::new(None),
+            inspector: Inspector::setup(None, None, String::from("Tasks")),
         }
     }
 
     pub fn render(&mut self, f: &mut Frame) {
         let area = f.area();
 
-        match &self.mode {
+        match &mut self.mode {
             AppMode::Overview => self.overview.render(f, area, true),
             AppMode::NotebookDetail => self.nb_detail.render(f, area),
+
+            AppMode::Add(action) => {
+                let chunks = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .spacing(1)
+                    .split(area);
+
+                match action {
+                    PendingAction::AddNotebook | PendingAction::EditNotebook => {
+                        self.overview.render(f, chunks[0], false);
+                    }
+                    PendingAction::AddTaskBefore
+                    | PendingAction::AddTaskAfter
+                    | PendingAction::EditTask
+                    | PendingAction::InspectTask => {
+                        self.nb_detail.render(f, chunks[0]);
+                    }
+                    _ => {}
+                }
+
+                self.inspector.render(f, chunks[1]);
+            }
 
             m if m.is_popup() => {
                 // Render the window in the background
@@ -89,7 +126,7 @@ impl App {
                     _ => {}
                 }
                 // Render the popup ontop
-                match &self.mode {
+                match &mut self.mode {
                     AppMode::Confirm(popup, _) => popup.render(f, area),
                     AppMode::Rename(popup, _) => popup.render(f, area),
 
@@ -115,30 +152,341 @@ impl App {
             return;
         }
 
-        // Mode-specific keys (pattern matching to avoid cloning the entire mode)
-        match &self.mode {
+        // Mode-specific keys
+        let current_mode = self.mode.clone();
+        match current_mode {
             AppMode::Overview => self.overview_handle_input(key),
             AppMode::NotebookDetail => self.notebook_detail_handle_input(key),
-            AppMode::Rename(popup, action) => {
-                let (p, a) = (popup.clone(), action.clone());
-                self.handle_rename(p, a, key);
-            }
+            AppMode::Add(action) => self.inspector_handle_input(action, key),
+            AppMode::Rename(popup, action) => self.handle_rename(popup, action, key),
             AppMode::Confirm(popup, action) => {
-                let (p, a) = (popup.clone(), action.clone());
+                let p = popup;
                 if let Some(confirmed) = p.handle_input(key) {
                     if confirmed {
-                        match a {
+                        match action {
                             PendingAction::DeleteNotebook => self.delete_selected_notebook(),
                             PendingAction::DeleteTask => self.delete_selected_task(),
                             PendingAction::DeleteSubtask => self.delete_selected_subtask(),
-
                             _ => {}
                         }
+                        self.mode = self.last_window.clone();
+                    } else {
+                        // If they said NO to discarding changes, put them back in Add mode
+                        match action {
+                            PendingAction::AddNotebook
+                            | PendingAction::EditNotebook
+                            | PendingAction::AddTaskBefore
+                            | PendingAction::AddTaskAfter
+                            | PendingAction::EditTask => {
+                                self.mode = AppMode::Add(action);
+                            }
+                            _ => {
+                                self.mode = self.last_window.clone();
+                            }
+                        }
                     }
-                    self.mode = self.last_window.clone();
                 }
             }
             _ => {}
+        }
+    }
+
+    pub fn add_notebook(&mut self) {
+        self.last_window = self.mode.clone();
+        self.inspector = Inspector::setup(None, None, String::from("Tasks"));
+        self.mode = AppMode::Add(PendingAction::AddNotebook);
+    }
+
+    pub fn edit_notebook(&mut self) {
+        if let Some(idx) = self.overview.state.selected() {
+            self.last_window = self.mode.clone();
+            let notebook = &self.notebooks[idx];
+            self.inspector = Inspector::setup(Some(notebook), None, String::from("Tasks"));
+            self.mode = AppMode::Add(PendingAction::EditNotebook);
+        }
+    }
+
+    pub fn inspect_task(&mut self) {
+        use crate::ui::inspect_window::InspectMode;
+        if let Some(nb) = &self.nb_detail.notebook {
+            if let Some(idx) = self.nb_detail.selected_task_idx {
+                self.last_window = self.mode.clone();
+                let task = &nb.tasks[idx];
+                self.inspector = Inspector::setup(None, Some(task), String::from("Subtasks"));
+                self.inspector.mode = InspectMode::View;
+                self.mode = AppMode::Add(PendingAction::InspectTask);
+            }
+        }
+    }
+
+    pub fn add_task(&mut self, action: PendingAction) {
+        self.last_window = self.mode.clone();
+        self.inspector = Inspector::setup(None, None, String::from("Subtasks"));
+        self.mode = AppMode::Add(action);
+    }
+
+    pub fn edit_task(&mut self) {
+        if let Some(nb) = &self.nb_detail.notebook {
+            if let Some(idx) = self.nb_detail.selected_task_idx {
+                self.last_window = self.mode.clone();
+                let task = &nb.tasks[idx];
+                self.inspector = Inspector::setup(None, Some(task), String::from("Subtasks"));
+                self.mode = AppMode::Add(PendingAction::EditTask);
+            }
+        }
+    }
+
+    pub fn sync_overview(&mut self) {
+        self.overview.notebooks = self.notebooks.clone();
+        self.overview.sync_inspector();
+    }
+
+    pub fn inspector_handle_input(&mut self, action: PendingAction, key: KeyEvent) {
+        if let Some(signal) = self.inspector.handle_input(key) {
+            match signal {
+                InspectorAction::Submit => {
+                    match action {
+                        PendingAction::AddNotebook => {
+                            self.create_new_notebook(
+                                self.inspector.title_input.clone(),
+                                self.inspector.desc_input.clone(),
+                                self.inspector.list_items.clone(),
+                            );
+                        }
+                        PendingAction::EditNotebook => {
+                            self.update_existing_notebook(
+                                self.inspector.title_input.clone(),
+                                self.inspector.desc_input.clone(),
+                                self.inspector.list_items.clone(),
+                            );
+                        }
+                        PendingAction::AddTaskBefore => {
+                            self.create_new_task(
+                                self.inspector.title_input.clone(),
+                                self.inspector.desc_input.clone(),
+                                self.inspector.list_items.clone(),
+                                true, // Before
+                            );
+                        }
+                        PendingAction::AddTaskAfter => {
+                            self.create_new_task(
+                                self.inspector.title_input.clone(),
+                                self.inspector.desc_input.clone(),
+                                self.inspector.list_items.clone(),
+                                false, // After
+                            );
+                        }
+                        PendingAction::EditTask => {
+                            self.update_existing_task(
+                                self.inspector.title_input.clone(),
+                                self.inspector.desc_input.clone(),
+                                self.inspector.list_items.clone(),
+                            );
+                        }
+                        _ => {}
+                    }
+                    self.mode = self.last_window.clone();
+                }
+                InspectorAction::Cancel => {
+                    if self.inspector.is_empty() || matches!(action, PendingAction::InspectTask) {
+                        self.mode = self.last_window.clone();
+                    } else {
+                        let popup = ConfirmPopup::new(
+                            String::from("Discard Changes"),
+                            String::from("You have unsaved changes. Discard?"),
+                        );
+                        self.mode = AppMode::Confirm(popup, action);
+                    }
+                }
+                InspectorAction::Edit => {
+                    use crate::ui::inspect_window::InspectMode;
+                    self.inspector.mode = InspectMode::Edit;
+
+                    // -- Transition --
+                    // If we were inspecting, we are now editing!
+                    let new_action = match action {
+                        PendingAction::InspectTask => PendingAction::EditTask,
+                        _ => action,
+                    };
+                    self.mode = AppMode::Add(new_action);
+                }
+            }
+        }
+    }
+
+    pub fn create_new_task(
+        &mut self,
+        name: String,
+        description: String,
+        subtask_names: Vec<String>,
+        before: bool,
+    ) {
+        use crate::models::subtask::Subtask;
+        use crate::models::task::Task;
+        use crate::ui::task_column::TaskColumnState;
+
+        if let Some(nb) = &mut self.nb_detail.notebook {
+            let current_idx = self.nb_detail.selected_task_idx.unwrap_or(0);
+            let insert_idx = if before { current_idx } else { current_idx + 1 };
+
+            let mut task = Task {
+                name,
+                description,
+                completion: 0.0,
+                is_done: false,
+                subtasks: subtask_names
+                    .into_iter()
+                    .map(|s| Subtask {
+                        name: s,
+                        is_done: false,
+                    })
+                    .collect(),
+            };
+            task.recalculate_completion();
+
+            // Insert into data and UI state
+            nb.tasks.insert(insert_idx, task);
+            self.nb_detail
+                .task_states
+                .insert(insert_idx, TaskColumnState::new());
+            self.nb_detail.selected_task_idx = Some(insert_idx);
+
+            let _ = self.storage.save_notebook(nb);
+            self.notebooks[self.selected_notebook_idx] = nb.clone();
+        }
+    }
+
+    pub fn update_existing_task(
+        &mut self,
+        name: String,
+        description: String,
+        subtask_names: Vec<String>,
+    ) {
+        use crate::models::subtask::Subtask;
+        use std::collections::HashMap;
+
+        if let Some(nb) = &mut self.nb_detail.notebook {
+            if let Some(idx) = self.nb_detail.selected_task_idx {
+                let task = &mut nb.tasks[idx];
+                task.name = name;
+                task.description = description;
+
+                // Map old subtask statuses
+                let statuses: HashMap<String, bool> = task
+                    .subtasks
+                    .iter()
+                    .map(|s| (s.name.clone(), s.is_done))
+                    .collect();
+
+                // Rebuild subtasks while preserving status
+                task.subtasks = subtask_names
+                    .into_iter()
+                    .map(|s_name| {
+                        let is_done = *statuses.get(&s_name).unwrap_or(&false);
+                        Subtask {
+                            name: s_name,
+                            is_done,
+                        }
+                    })
+                    .collect();
+
+                task.recalculate_completion();
+
+                let _ = self.storage.save_notebook(nb);
+                self.notebooks[self.selected_notebook_idx] = nb.clone();
+                
+                // Re-initialize task states to handle new subtask counts
+                self.nb_detail.task_states = (0..nb.tasks.len())
+                    .map(|_| crate::ui::task_column::TaskColumnState::new())
+                    .collect();
+            }
+        }
+    }
+
+    pub fn refresh_notebooks_list(&mut self) {
+        // 1. Sync index and load sorted notebooks
+        let index = self.storage.validate_and_sync_index().unwrap_or_default();
+        let mut notebooks = Vec::new();
+
+        // Save the ID of the currently selected notebook to restore selection later
+        let current_id = self.overview.state.selected()
+            .and_then(|idx| self.notebooks.get(idx))
+            .map(|nb| nb.id.clone());
+
+        for meta in index.notebooks {
+            if let Ok(nb) = self.storage.load_notebook(&meta.id) {
+                notebooks.push(nb);
+            }
+        }
+        self.notebooks = notebooks;
+        self.overview.notebooks = self.notebooks.clone();
+
+        // 2. Restore selection based on ID
+        if let Some(id) = current_id {
+            if let Some(new_idx) = self.notebooks.iter().position(|nb| nb.id == id) {
+                self.overview.state.select(Some(new_idx));
+                self.selected_notebook_idx = new_idx;
+            }
+        }
+
+        // 3. Sync the active detail view
+        if let Some(nb) = self.notebooks.get(self.selected_notebook_idx) {
+            self.nb_detail.notebook = Some(nb.clone());
+        }
+
+        self.overview.sync_inspector();
+    }
+
+    pub fn create_new_notebook(
+        &mut self,
+        name: String,
+        description: String,
+        task_names: Vec<String>,
+    ) {
+        use crate::models::task::Task;
+        let mut notebook = Notebook::new(name, description);
+        for t_name in task_names {
+            notebook.tasks.push(Task {
+                name: t_name,
+                description: String::new(),
+                completion: 0.0,
+                is_done: false,
+                subtasks: Vec::new(),
+            });
+        }
+        let _ = self.storage.save_notebook(&notebook);
+        self.notebooks.push(notebook);
+        self.refresh_notebooks_list();
+    }
+
+    pub fn update_existing_notebook(
+        &mut self,
+        name: String,
+        description: String,
+        task_names: Vec<String>,
+    ) {
+        use crate::models::task::Task;
+        if let Some(idx) = self.overview.state.selected() {
+            let nb = &mut self.notebooks[idx];
+            nb.name = name;
+            nb.description = description;
+
+            // Sync task names (simple rebuild for now)
+            if nb.tasks.len() != task_names.len() {
+                nb.tasks = task_names
+                    .into_iter()
+                    .map(|t| Task {
+                        name: t,
+                        description: String::new(),
+                        completion: 0.0,
+                        is_done: false,
+                        subtasks: Vec::new(),
+                    })
+                    .collect();
+            }
+
+            let _ = self.storage.save_notebook(nb);
+            self.refresh_notebooks_list();
         }
     }
 
@@ -179,6 +527,8 @@ impl App {
                         self.mode = AppMode::Rename(popup, PendingAction::RenameNotebook);
                     }
                 }
+                OverviewAction::AddNotebook => self.add_notebook(),
+                OverviewAction::EditNotebook => self.edit_notebook(),
             }
         }
     }
@@ -254,6 +604,10 @@ impl App {
                         }
                     }
                 }
+                NotebookViewAction::AddTaskBefore => self.add_task(PendingAction::AddTaskBefore),
+                NotebookViewAction::AddTaskAfter => self.add_task(PendingAction::AddTaskAfter),
+                NotebookViewAction::EditTask => self.edit_task(),
+                NotebookViewAction::InspectTask => self.inspect_task(),
             }
         }
     }
@@ -409,11 +763,10 @@ impl App {
 impl AppMode {
     pub fn can_quit(&self) -> bool {
         match self {
-            AppMode::TaskEditor => false,
-            AppMode::Confirm(_, _) => false,
-            AppMode::Rename(_, _) => false,
+            AppMode::Overview => true,
+            AppMode::NotebookDetail => true,
 
-            _ => true,
+            _ => false,
         }
     }
 
@@ -421,6 +774,7 @@ impl AppMode {
         match self {
             AppMode::Rename(_, _) => true,
             AppMode::Confirm(_, _) => true,
+            AppMode::Add(_) => true,
             AppMode::Help => true,
 
             _ => false,
