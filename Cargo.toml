@@ -1,7 +1,19 @@
 [package]
-name = "Rusty-Do"
-version = "0.1.0"
+name = "rusty-do"
+version = "1.0.0"
 edition = "2024"
+authors = ["Quippy22"]
+description = "A high-speed, Vim-inspired TUI task manager."
+license = "MIT"
+repository = "https://github.com/Quippy22/Rusty-Do"
+homepage = "https://github.com/Quippy22/Rusty-Do"
+readme = "README.md"
+categories = ["command-line-utilities", "productivity"]
+keywords = ["tui", "todo", "vim", "task-manager"]
+
+[[bin]]
+name = "rsdo"
+path = "src/main.rs"
 
 [dependencies]
 chrono = { version = "0.4.44", features = ["serde"] }

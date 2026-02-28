@@ -3,20 +3,6 @@
 version = 4
 
 [[package]]
-name = "Rusty-Do"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "color-eyre",
- "crossterm",
- "directories",
- "ratatui",
- "serde",
- "serde_json",
- "uuid",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1290,6 +1276,20 @@ name = "rustversion"
 version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
+
+[[package]]
+name = "rusty-do"
+version = "1.0.0"
+dependencies = [
+ "chrono",
+ "color-eyre",
+ "crossterm",
+ "directories",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "uuid",
+]
 
 [[package]]
 name = "ryu"

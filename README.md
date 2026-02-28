@@ -1,30 +1,68 @@
 # 🦀 Rusty-Do
 
-A terminal-based to-do list built in Rust.
+---
 
-The design is heavily inspired by the card-and-list mechanics of [Trello](https://trello.com). Instead of a traditional flat-text checklist, this application organizes tasks into side-by-side vertical columns. This spatial layout allows for categorizing tasks into different stages or groups while maintaining a clear overview of all active items within a single terminal window.
+**Rusty-Do** is a high-speed, Vim-inspired TUI task manager designed for power users seeking to manage hierarchical tasks without leaving the home row. 
 
-## ⚙️ The Mechanics
+Heavily inspired by the card-and-list mechanics of [Trello](https://trello.com) and the [kanban-tui](https://github.com/fulsomenko/kanban) workflow, it organizes tasks into spatial, side-by-side vertical columns. This layout provides high-level project visibility while maintaining rapid, low-latency interaction and local-first persistence.
 
-### Board Layout
-The interface is centered around a horizontal board. The screen is divided into multiple vertical lists, each acting as a container for individual task "cards." Navigation is designed to be 2D: users move horizontally between columns to switch categories and vertically within a column to select specific tasks.
+## 🚀 Quick Start
 
-### Master-Detail Interface
-Rusty-Do utilizes a split-pane layout to handle task depth:
-- **The Master (Left/Center):** This area displays the board and its various lists. It provides the high-level context of where tasks sit in the workflow.
-- **The Detail (Right):** Upon selecting a card, a dedicated detail pane opens on the right side of the screen. This section is used to display long-form notes, metadata, or extended descriptions that would otherwise clutter the main board view.
+### Installation
+Install via [crates.io](https://crates.io/crates/rusty-do):
+```bash
+cargo install rusty-do
+```
 
-### Interaction
-The application uses Vim-inspired keybinds for navigation and editing.
+### Run
+Launch the application by typing the command in your terminal:
+```bash
+rsdo
+```
+### Note: Once inside the app, press `?` at any time to see the full list of keybindings. These are window-dependent and will show relevant keys for your current view.
 
-## 🏗️ Technical Architecture
+## 🏗️ The Hierarchy
+Rusty-Do organizes tasks into a three-tier hierarchy:
+1.  **Notebooks**: High-level projects or areas of focus (e.g., "Work", "Home", "Rust-Project").
+2.  **Tasks**: Major milestones or categories within a notebook, displayed as vertical Kanban-style columns.
+3.  **Subtasks**: Granular, actionable items within a task.
 
-The project explores several core Rust concepts and external crates:
+## ⌨️ Vim-Inspired Controls
 
-- **Data Modeling:** Using recursive or nested structures (Vectors of Lists, which contain Vectors of Tasks) while navigating Rust’s ownership and borrowing requirements.
-- **TUI Rendering (Ratatui):** Implementing complex grid-based layouts and managing terminal "rects" to ensure the side-by-side columns and detail panes resize correctly.
-- **Input Handling (Crossterm):** Managing a raw mode terminal event loop to capture and process discrete keypresses for modal navigation.
-- **Persistence (Serde):** Mapping the entire board state to a local `data.json` file to ensure tasks are saved and loaded across sessions.
+### Navigation (Global)
+- `h` / `l` : Move Left/Right between Notebooks or Tasks.
+- `j` / `k` : Move Up/Down within lists or subtasks.
+- `?` : Show the **Help Menu**.
+- `Enter` : Access a selected Notebook or Inspect a Task.
+- `Esc` : Return to the previous screen.
+- `q` : Quit application.
 
-## ⚠️ Disclaimer
-This project is strictly a **learning experience**. The primary motivation is to explore the Rust language, its memory safety model, and its ecosystem for building CLI tools. It is not intended to be a production-ready project management suite or a replacement for professional software. The focus is on the process of learning how to structure a stateful, low-level application.
+### Modification
+- `a` : **Append** a new item (Notebook/Task/Subtask) after the selection.
+- `i` : **Insert** a new item before the selection.
+- `e` : **Edit** the name of the selected item.
+- `E` : Open the **Full Inspector** to edit title, description, and subtasks in split-screen.
+- `D` : **Delete** the selected Task.
+- `d` : **Delete** the selected Subtask.
+- `r` : **Rename** the selected Notebook or Task.
+- `x` : Toggle completion of a **Subtask**.
+- `X` : Toggle completion of an **Entire Task** (requires confirmation).
+
+### Inspector (Add/Edit Mode)
+- `Tab` / `Shift+Tab` : Cycle between Title, Description, and List fields.
+- `Enter` : Add a new entry to the list field (while focused on List).
+- `Alt + Enter` : **Submit** all changes and save.
+- `Esc` : Cancel and discard changes.
+
+## ✨ Features
+- **Ghost Placeholders**: See your new notebook or task appear in the background in real-time as you type its name.
+- **Smart Sorting**: Your most recently accessed notebooks automatically jump to the top of the list.
+- **XDG Persistence**: Data is stored safely in your standard local data directory (`~/.local/share/rusty-do/` on Linux) as clean, readable JSON.
+- **Zero-Latency UI**: Optimized for high-speed interaction with immediate visual feedback.
+
+## 🛠️ Built With
+![Rust](https://img.shields.io/badge/rust-%23E32F26.svg?style=for-the-badge&logo=rust&logoColor=white)
+![Ratatui](https://img.shields.io/badge/Ratatui-black?style=for-the-badge&logo=ratatui&logoColor=white)
+
+## 📜 License
+Licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
