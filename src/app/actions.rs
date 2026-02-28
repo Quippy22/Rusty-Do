@@ -7,31 +7,36 @@ use crate::ui::notebook_detail::NotebookDetail;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum PendingAction {
+    // Deletes
     DeleteNotebook,
     DeleteTask,
     DeleteSubtask,
+    // Renames
     RenameNotebook,
     RenameTask,
     RenameSubtask,
+    // Adds
     AddNotebook,
-    EditNotebook,
     AddTaskBefore,
     AddTaskAfter,
+    AddSubtaskBefore,
+    AddSubtaskAfter,
+    // Edits
     EditTask,
+    EditNotebook,
+
     InspectTask,
     ToggleTask,
 }
 
-/// --- Deletions ---
-
-/// A universal delete function for internal notebook elements.
-/// Returns Some(Notebook) if modified, None if the notebook itself should be deleted.
+// -- Deletions --
 pub fn delete_element(
     action: PendingAction,
     mut notebook: Notebook,
     task_idx: Option<usize>,
     subtask_idx: Option<usize>,
 ) -> Option<Notebook> {
+    // A universal delete function for internal notebook elements.
     match action {
         PendingAction::DeleteNotebook => None,
 
@@ -59,14 +64,13 @@ pub fn delete_element(
 }
 
 // -- Notebook Actions --
-
-pub fn init_add_notebook(app: &mut App) {
+pub fn add_notebook(app: &mut App) {
     app.last_window = app.mode.clone();
     app.inspector = Inspector::setup(None, None, String::from("Tasks"));
     app.mode = AppMode::Add(PendingAction::AddNotebook);
 }
 
-pub fn init_edit_notebook(app: &mut App) {
+pub fn edit_notebook(app: &mut App) {
     if let Some(idx) = app.overview.state.selected() {
         app.last_window = app.mode.clone();
         let notebook = &app.notebooks[idx];
@@ -99,14 +103,13 @@ pub fn exit_notebook(app: &mut App) {
 }
 
 // -- Task Actions --
-
-pub fn init_add_task(app: &mut App, action: PendingAction) {
+pub fn add_task(app: &mut App, action: PendingAction) {
     app.last_window = app.mode.clone();
     app.inspector = Inspector::setup(None, None, String::from("Subtasks"));
     app.mode = AppMode::Add(action);
 }
 
-pub fn init_edit_task(app: &mut App) {
+pub fn edit_task(app: &mut App) {
     if let Some(nb) = &app.nb_detail.notebook {
         if let Some(idx) = app.nb_detail.selected_task_idx {
             app.last_window = app.mode.clone();
@@ -117,7 +120,7 @@ pub fn init_edit_task(app: &mut App) {
     }
 }
 
-pub fn init_inspect_task(app: &mut App) {
+pub fn inspect_task(app: &mut App) {
     if let Some(nb) = &app.nb_detail.notebook {
         if let Some(idx) = app.nb_detail.selected_task_idx {
             app.last_window = app.mode.clone();
@@ -130,7 +133,6 @@ pub fn init_inspect_task(app: &mut App) {
 }
 
 // -- Inspector Submission --
-
 pub fn submit_inspector(app: &mut App, action: PendingAction) {
     match action {
         PendingAction::AddNotebook => {
@@ -194,8 +196,68 @@ pub fn submit_inspector(app: &mut App, action: PendingAction) {
     app.mode = app.last_window.clone();
 }
 
-// -- Internal Helpers --
+pub fn add_subtask(app: &mut App, name: String, action: PendingAction) {
+    if let Some(mut nb) = app.nb_detail.notebook.clone() {
+        if let Some(t_idx) = app.nb_detail.selected_task_idx {
+            let current_s_idx = app.nb_detail.task_states[t_idx]
+                .state
+                .selected()
+                .unwrap_or(0);
+            let insert_idx = if action == PendingAction::AddSubtaskBefore {
+                current_s_idx
+            } else if nb.tasks[t_idx].subtasks.is_empty() {
+                0
+            } else {
+                current_s_idx + 1
+            };
 
+            nb.tasks[t_idx].subtasks.insert(
+                insert_idx,
+                Subtask {
+                    name,
+                    is_done: false,
+                },
+            );
+            nb.tasks[t_idx].recalculate_completion();
+            app.refresh_nb_detail(nb);
+
+            // Restore selection to the new subtask
+            app.nb_detail.task_states[t_idx].state.select(Some(insert_idx));
+        }
+    }
+}
+
+pub fn apply_rename(app: &mut App, new_name: String, action: PendingAction) {
+    match action {
+        PendingAction::RenameNotebook => {
+            app.notebooks[app.selected_notebook_idx].name = new_name;
+            let nb = &app.notebooks[app.selected_notebook_idx];
+            let _ = app.storage.save_notebook(nb);
+            app.refresh_notebooks_list();
+        }
+        PendingAction::RenameTask => {
+            if let Some(mut nb) = app.nb_detail.notebook.clone() {
+                if let Some(idx) = app.nb_detail.selected_task_idx {
+                    nb.tasks[idx].name = new_name;
+                    app.refresh_nb_detail(nb);
+                }
+            }
+        }
+        PendingAction::RenameSubtask => {
+            if let Some(mut nb) = app.nb_detail.notebook.clone() {
+                if let Some(t_idx) = app.nb_detail.selected_task_idx {
+                    if let Some(s_idx) = app.nb_detail.task_states[t_idx].state.selected() {
+                        nb.tasks[t_idx].subtasks[s_idx].name = new_name;
+                        app.refresh_nb_detail(nb);
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+// -- Internal Helpers --
 fn create_notebook_struct(name: &str, desc: &str, task_names: &[String]) -> Notebook {
     let mut notebook = Notebook::new(name.to_string(), desc.to_string());
     for t_name in task_names {

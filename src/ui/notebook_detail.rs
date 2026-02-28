@@ -24,6 +24,8 @@ pub enum NotebookViewAction {
     DeleteSubtask,
     AddTaskBefore,
     AddTaskAfter,
+    AddSubtaskBefore,
+    AddSubtaskAfter,
     EditTask,
     InspectTask,
     ConfirmToggleTask,
@@ -172,6 +174,8 @@ impl NotebookDetail {
             // Adds
             KeyCode::Char('A') => Some(NotebookViewAction::AddTaskAfter),
             KeyCode::Char('I') => Some(NotebookViewAction::AddTaskBefore),
+            KeyCode::Char('a') => Some(NotebookViewAction::AddSubtaskAfter),
+            KeyCode::Char('i') => Some(NotebookViewAction::AddSubtaskBefore),
 
             // Deletes
             KeyCode::Char('D') => Some(NotebookViewAction::DeleteTask),
