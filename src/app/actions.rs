@@ -2,8 +2,10 @@ use std::collections::HashMap;
 
 use crate::app::{App, AppMode};
 use crate::models::{notebook::Notebook, subtask::Subtask, task::Task};
+use crate::ui::confirm::ConfirmPopup;
 use crate::ui::inspect_window::{InspectMode, Inspector};
 use crate::ui::notebook_detail::NotebookDetail;
+use crate::ui::rename::RenamePopup;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum PendingAction {
@@ -63,9 +65,89 @@ pub fn delete_element(
     }
 }
 
+// -- Prompts --
+pub fn prompt_delete(app: &mut App, action: PendingAction) {
+    let (title, name) = match action {
+        PendingAction::DeleteNotebook => (
+            "Delete Notebook",
+            app.notebooks[app.selected_notebook_idx].name.clone(),
+        ),
+        PendingAction::DeleteTask => (
+            "Delete Task",
+            app.nb_detail.notebook.as_ref().unwrap().tasks
+                [app.nb_detail.selected_task_idx.unwrap()]
+            .name
+            .clone(),
+        ),
+        PendingAction::DeleteSubtask => {
+            let t_idx = app.nb_detail.selected_task_idx.unwrap();
+            let s_idx = app.nb_detail.task_states[t_idx].state.selected().unwrap();
+            (
+                "Delete Subtask",
+                app.nb_detail.notebook.as_ref().unwrap().tasks[t_idx].subtasks[s_idx]
+                    .name
+                    .clone(),
+            )
+        }
+        _ => ("Delete", String::new()),
+    };
+    let popup = ConfirmPopup::new(title.into(), format!("Delete {}?", name));
+    app.mode = AppMode::Confirm(popup, action);
+}
+
+pub fn prompt_rename(app: &mut App, action: PendingAction) {
+    let (title, name) = match action {
+        PendingAction::RenameNotebook => (
+            "Rename Notebook",
+            app.notebooks[app.selected_notebook_idx].name.clone(),
+        ),
+        PendingAction::RenameTask => (
+            "Rename Task",
+            app.nb_detail.notebook.as_ref().unwrap().tasks
+                [app.nb_detail.selected_task_idx.unwrap()]
+            .name
+            .clone(),
+        ),
+        PendingAction::RenameSubtask => {
+            let t_idx = app.nb_detail.selected_task_idx.unwrap();
+            let s_idx = app.nb_detail.task_states[t_idx].state.selected().unwrap();
+            (
+                "Rename Subtask",
+                app.nb_detail.notebook.as_ref().unwrap().tasks[t_idx].subtasks[s_idx]
+                    .name
+                    .clone(),
+            )
+        }
+        _ => ("Rename", String::new()),
+    };
+    let popup = RenamePopup::new(title.into(), name, action.clone());
+    app.mode = AppMode::Rename(popup, action);
+}
+
+pub fn prompt_toggle_task(app: &mut App) {
+    if let Some(nb) = &app.nb_detail.notebook {
+        if let Some(idx) = app.nb_detail.selected_task_idx {
+            let name = nb.tasks[idx].name.clone();
+            let popup = ConfirmPopup::new(
+                "Toggle Task".into(),
+                format!("Toggle completion for {}?", name),
+            );
+            app.mode = AppMode::Confirm(popup, PendingAction::ToggleTask);
+        }
+    }
+}
+
 // -- Notebook Actions --
 pub fn add_notebook(app: &mut App) {
     app.last_window = app.mode.clone();
+
+    // Create Ghost placeholder
+    let placeholder = create_notebook_struct("New Notebook", "", &[]);
+    app.notebooks.push(placeholder);
+    app.selected_notebook_idx = app.notebooks.len() - 1;
+    app.overview.notebooks = app.notebooks.clone();
+    app.overview.state.select(Some(app.selected_notebook_idx));
+
     app.inspector = Inspector::setup(None, None, String::from("Tasks"));
     app.mode = AppMode::Add(PendingAction::AddNotebook);
 }
@@ -104,9 +186,34 @@ pub fn exit_notebook(app: &mut App) {
 
 // -- Task Actions --
 pub fn add_task(app: &mut App, action: PendingAction) {
-    app.last_window = app.mode.clone();
-    app.inspector = Inspector::setup(None, None, String::from("Subtasks"));
-    app.mode = AppMode::Add(action);
+    if let Some(nb) = &mut app.nb_detail.notebook {
+        app.last_window = app.mode.clone();
+
+        // Create Ghost placeholder
+        let insert_idx = if nb.tasks.is_empty() {
+            0
+        } else {
+            let current_idx = app.nb_detail.selected_task_idx.unwrap_or(0);
+            if action == PendingAction::AddTaskBefore {
+                current_idx
+            } else {
+                current_idx + 1
+            }
+        };
+
+        let task = create_task_struct("New Task", "", &[]);
+        nb.tasks.insert(insert_idx, task);
+        app.nb_detail
+            .task_states
+            .insert(insert_idx, crate::ui::task_column::TaskColumnState::new());
+        app.nb_detail.selected_task_idx = Some(insert_idx);
+
+        // Sync master list
+        app.notebooks[app.selected_notebook_idx] = nb.clone();
+
+        app.inspector = Inspector::setup(None, None, String::from("Subtasks"));
+        app.mode = AppMode::Add(action);
+    }
 }
 
 pub fn edit_task(app: &mut App) {
@@ -132,17 +239,109 @@ pub fn inspect_task(app: &mut App) {
     }
 }
 
-// -- Inspector Submission --
+// -- Executioners --
+pub fn confirm_success(app: &mut App, action: PendingAction) {
+    // Perform cleanup first (e.g. discarding ghosts)
+    cleanup_ghost(app, action.clone());
+
+    match action {
+        PendingAction::DeleteNotebook => {
+            let id = app.notebooks[app.selected_notebook_idx].id.clone();
+            let _ = std::fs::remove_file(app.storage.fs.get_notebook_path(&id));
+            app.notebooks.remove(app.selected_notebook_idx);
+            let _ = app.storage.validate_and_sync_index();
+            app.refresh_notebooks_list();
+        }
+        PendingAction::DeleteTask | PendingAction::DeleteSubtask => {
+            if let Some(nb) = app.nb_detail.notebook.clone() {
+                let t_idx = app.nb_detail.selected_task_idx;
+                let s_idx = t_idx.and_then(|i| app.nb_detail.task_states[i].state.selected());
+
+                if let Some(updated) = delete_element(action.clone(), nb, t_idx, s_idx) {
+                    app.refresh_nb_detail(updated);
+                }
+            }
+        }
+        PendingAction::ToggleTask => {
+            if let Some(mut nb) = app.nb_detail.notebook.clone() {
+                if let Some(idx) = app.nb_detail.selected_task_idx {
+                    nb.tasks[idx].toggle_task();
+                    app.refresh_nb_detail(nb);
+                }
+            }
+        }
+        _ => {}
+    }
+    app.mode = app.last_window.clone();
+}
+
+pub fn prompt_discard_changes(app: &mut App, action: PendingAction) {
+    let popup = ConfirmPopup::new(
+        String::from("Discard Changes"),
+        String::from("Discard unsaved text?"),
+    );
+    app.mode = AppMode::Confirm(popup, action);
+}
+
+pub fn transition_to_edit(app: &mut App, action: PendingAction) {
+    app.inspector.mode = InspectMode::Edit;
+    let new_action = match action {
+        PendingAction::InspectTask => PendingAction::EditTask,
+        _ => action,
+    };
+    app.mode = AppMode::Add(new_action);
+}
+
+pub fn confirm_cancel(app: &mut App, action: PendingAction) {
+    match action {
+        PendingAction::AddNotebook
+        | PendingAction::EditNotebook
+        | PendingAction::AddTaskBefore
+        | PendingAction::AddTaskAfter
+        | PendingAction::EditTask => {
+            app.mode = AppMode::Add(action);
+        }
+        _ => app.mode = app.last_window.clone(),
+    }
+}
+
+pub fn sync_inspector_title(app: &mut App, action: PendingAction) {
+    let title = app.inspector.title_input.clone();
+    match action {
+        PendingAction::AddNotebook | PendingAction::EditNotebook => {
+            app.notebooks[app.selected_notebook_idx].name = title;
+            app.overview.notebooks = app.notebooks.clone();
+        }
+        PendingAction::AddTaskBefore | PendingAction::AddTaskAfter | PendingAction::EditTask => {
+            if let Some(nb) = &mut app.nb_detail.notebook {
+                if let Some(idx) = app.nb_detail.selected_task_idx {
+                    nb.tasks[idx].name = title;
+                    app.notebooks[app.selected_notebook_idx] = nb.clone();
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
 pub fn submit_inspector(app: &mut App, action: PendingAction) {
     match action {
         PendingAction::AddNotebook => {
-            let nb = create_notebook_struct(
-                &app.inspector.title_input,
-                &app.inspector.desc_input,
-                &app.inspector.list_items,
-            );
-            let _ = app.storage.save_notebook(&nb);
-            app.notebooks.push(nb);
+            // Finalize the Ghost
+            let id = {
+                let nb = &mut app.notebooks[app.selected_notebook_idx];
+                nb.description = app.inspector.desc_input.clone();
+                nb.tasks = app
+                    .inspector
+                    .list_items
+                    .iter()
+                    .map(|t| create_task_struct(t, "", &[]))
+                    .collect();
+
+                let _ = app.storage.save_notebook(nb);
+                nb.id.clone()
+            };
+            let _ = app.storage.update_last_opened(&id);
         }
         PendingAction::EditNotebook => {
             if let Some(idx) = app.overview.state.selected() {
@@ -150,11 +349,13 @@ pub fn submit_inspector(app: &mut App, action: PendingAction) {
                 nb.name = app.inspector.title_input.clone();
                 nb.description = app.inspector.desc_input.clone();
                 let _ = app.storage.save_notebook(nb);
+                let _ = app.storage.update_last_opened(&nb.id);
             }
         }
-        PendingAction::EditTask => {
+        PendingAction::EditTask | PendingAction::AddTaskBefore | PendingAction::AddTaskAfter => {
             if let Some(nb) = &mut app.nb_detail.notebook {
                 if let Some(idx) = app.nb_detail.selected_task_idx {
+                    // Update the existing placeholder/task
                     let task = nb.tasks.remove(idx);
                     let updated = update_task_struct(
                         task,
@@ -163,31 +364,10 @@ pub fn submit_inspector(app: &mut App, action: PendingAction) {
                         &app.inspector.list_items,
                     );
                     nb.tasks.insert(idx, updated);
+
                     let _ = app.storage.save_notebook(nb);
                     app.notebooks[app.selected_notebook_idx] = nb.clone();
                 }
-            }
-        }
-        PendingAction::AddTaskBefore | PendingAction::AddTaskAfter => {
-            if let Some(nb) = &mut app.nb_detail.notebook {
-                let current_idx = app.nb_detail.selected_task_idx.unwrap_or(0);
-                let insert_idx = if action == PendingAction::AddTaskBefore {
-                    current_idx
-                } else {
-                    current_idx + 1
-                };
-                let task = create_task_struct(
-                    &app.inspector.title_input,
-                    &app.inspector.desc_input,
-                    &app.inspector.list_items,
-                );
-                nb.tasks.insert(insert_idx, task);
-                app.nb_detail
-                    .task_states
-                    .insert(insert_idx, crate::ui::task_column::TaskColumnState::new());
-                app.nb_detail.selected_task_idx = Some(insert_idx);
-                let _ = app.storage.save_notebook(nb);
-                app.notebooks[app.selected_notebook_idx] = nb.clone();
             }
         }
         _ => {}
@@ -222,7 +402,9 @@ pub fn add_subtask(app: &mut App, name: String, action: PendingAction) {
             app.refresh_nb_detail(nb);
 
             // Restore selection to the new subtask
-            app.nb_detail.task_states[t_idx].state.select(Some(insert_idx));
+            app.nb_detail.task_states[t_idx]
+                .state
+                .select(Some(insert_idx));
         }
     }
 }
@@ -249,6 +431,40 @@ pub fn apply_rename(app: &mut App, new_name: String, action: PendingAction) {
                     if let Some(s_idx) = app.nb_detail.task_states[t_idx].state.selected() {
                         nb.tasks[t_idx].subtasks[s_idx].name = new_name;
                         app.refresh_nb_detail(nb);
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+pub fn cleanup_ghost(app: &mut App, action: PendingAction) {
+    match action {
+        PendingAction::AddNotebook => {
+            if app.notebooks.len() > app.selected_notebook_idx {
+                app.notebooks.remove(app.selected_notebook_idx);
+                app.refresh_notebooks_list();
+            }
+        }
+        PendingAction::AddTaskBefore | PendingAction::AddTaskAfter => {
+            if let Some(nb) = &mut app.nb_detail.notebook {
+                if let Some(idx) = app.nb_detail.selected_task_idx {
+                    if idx < nb.tasks.len() {
+                        nb.tasks.remove(idx);
+                        app.nb_detail.task_states.remove(idx);
+
+                        let new_len = nb.tasks.len();
+                        if new_len == 0 {
+                            app.nb_detail.selected_task_idx = None;
+                            app.nb_detail.scroll_offset = 0;
+                        } else {
+                            app.nb_detail.selected_task_idx = Some(idx.min(new_len - 1));
+                            app.nb_detail.scroll_offset =
+                                app.nb_detail.scroll_offset.min(new_len - 1);
+                        }
+
+                        app.notebooks[app.selected_notebook_idx] = nb.clone();
                     }
                 }
             }
