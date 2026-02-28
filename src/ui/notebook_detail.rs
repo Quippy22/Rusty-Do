@@ -26,6 +26,7 @@ pub enum NotebookViewAction {
     AddTaskAfter,
     EditTask,
     InspectTask,
+    ConfirmToggleTask,
 }
 
 impl NotebookDetail {
@@ -89,16 +90,17 @@ impl NotebookDetail {
         let horizontal_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(constraints)
-            .flex(Flex::Start)
+            .flex(Flex::Center)
             .split(content_area);
 
-        // 5. Final Render (borrowing notebook immutably ONLY here)
+        // 5. Final Render
         if let Some(notebook) = &self.notebook {
+            // 4. Render TaskColumns
             for i in 0..visible_count {
                 let task_idx = self.scroll_offset + i;
                 if let Some(task) = notebook.tasks.get(task_idx) {
                     let is_focused = Some(task_idx) == self.selected_task_idx;
-                    let widget = TaskColumn::new(task, is_focused);
+                    let widget = TaskColumn::new(task, is_focused, task_idx, notebook.tasks.len());
                     f.render_stateful_widget(
                         widget,
                         horizontal_chunks[i],
@@ -127,8 +129,6 @@ impl NotebookDetail {
                 if let Some(selected) = self.selected_task_idx {
                     if selected > 0 {
                         self.selected_task_idx = Some(selected - 1);
-                    } else if task_count > 0 {
-                        self.selected_task_idx = Some(task_count - 1);
                     }
                 }
                 None
@@ -137,8 +137,6 @@ impl NotebookDetail {
                 if let Some(selected) = self.selected_task_idx {
                     if selected < task_count - 1 {
                         self.selected_task_idx = Some(selected + 1);
-                    } else if task_count > 0 {
-                        self.selected_task_idx = Some(0);
                     }
                 }
                 None
@@ -164,14 +162,7 @@ impl NotebookDetail {
                 }
                 None
             }
-            KeyCode::Char('X') => {
-                if let Some(selected) = self.selected_task_idx {
-                    if let Some(nb) = &mut self.notebook {
-                        nb.tasks[selected].toggle_task();
-                    }
-                }
-                None
-            }
+            KeyCode::Char('X') => Some(NotebookViewAction::ConfirmToggleTask),
 
             // Renames
             KeyCode::Char('r') => Some(NotebookViewAction::RenameTask),
@@ -179,8 +170,8 @@ impl NotebookDetail {
             KeyCode::Char('E') => Some(NotebookViewAction::EditTask),
 
             // Adds
-            KeyCode::Char('a') => Some(NotebookViewAction::AddTaskAfter),
-            KeyCode::Char('i') => Some(NotebookViewAction::AddTaskBefore),
+            KeyCode::Char('A') => Some(NotebookViewAction::AddTaskAfter),
+            KeyCode::Char('I') => Some(NotebookViewAction::AddTaskBefore),
 
             // Deletes
             KeyCode::Char('D') => Some(NotebookViewAction::DeleteTask),
@@ -328,7 +319,7 @@ impl NotebookDetail {
                             max_w = w;
                         }
                     }
-                    (max_w.clamp(20, 70) as u16) + 2 // +2 for borders
+                    (max_w.clamp(35, 70) as u16) + 2 // +2 for borders
                 })
                 .collect()
         } else {

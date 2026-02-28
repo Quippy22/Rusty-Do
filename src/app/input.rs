@@ -117,6 +117,18 @@ fn handle_detail(app: &mut App, key: KeyEvent) {
                     }
                 }
             }
+            NotebookViewAction::ConfirmToggleTask => {
+                if let Some(nb) = &app.nb_detail.notebook {
+                    if let Some(t_idx) = app.nb_detail.selected_task_idx {
+                        let name = nb.tasks[t_idx].name.clone();
+                        let popup = ConfirmPopup::new(
+                            String::from("Toggle Task"),
+                            format!("Toggle completion for {}?", name),
+                        );
+                        app.mode = AppMode::Confirm(popup, PendingAction::ToggleTask);
+                    }
+                }
+            }
         }
     }
 }
@@ -177,6 +189,14 @@ fn handle_confirm(app: &mut App, popup: ConfirmPopup, action: PendingAction, key
                             actions::delete_element(action.clone(), nb, t_idx, s_idx)
                         {
                             app.refresh_nb_detail(updated);
+                        }
+                    }
+                }
+                PendingAction::ToggleTask => {
+                    if let Some(mut nb) = app.nb_detail.notebook.clone() {
+                        if let Some(idx) = app.nb_detail.selected_task_idx {
+                            nb.tasks[idx].toggle_task();
+                            app.refresh_nb_detail(nb);
                         }
                     }
                 }

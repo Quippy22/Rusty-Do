@@ -19,6 +19,7 @@ pub enum PendingAction {
     AddTaskAfter,
     EditTask,
     InspectTask,
+    ToggleTask,
 }
 
 /// --- Deletions ---

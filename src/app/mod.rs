@@ -89,6 +89,9 @@ impl App {
     }
 
     pub fn quit(&mut self) {
+        if let Some(nb) = &self.nb_detail.notebook {
+            let _ = self.storage.save_notebook(nb);
+        }
         self.should_quit = true;
     }
 
