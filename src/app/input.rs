@@ -22,7 +22,6 @@ pub fn handle_input(app: &mut App, key: KeyEvent) {
         AppMode::Add(action) => handle_inspector(app, action, key),
         AppMode::Confirm(popup, action) => handle_confirm(app, popup, action, key),
         AppMode::Rename(popup, action) => handle_rename(app, popup, action, key),
-        _ => {}
     }
 }
 

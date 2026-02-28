@@ -18,13 +18,12 @@ pub enum AppMode {
     // -- Windows --
     Overview,       // The main window
     NotebookDetail, // See and interact with the tasks of one notebook
-    TaskEditor,     // Add/edit a task
     Add(PendingAction),
 
     // -- Popups --
     Confirm(ConfirmPopup, PendingAction),
     Rename(RenamePopup, PendingAction),
-    Help, // See keybinds
+    // Help, // See keybinds
 }
 
 impl AppMode {
@@ -32,6 +31,7 @@ impl AppMode {
         match self {
             AppMode::Overview => true,
             AppMode::NotebookDetail => true,
+
             _ => false,
         }
     }
@@ -40,7 +40,8 @@ impl AppMode {
         match self {
             AppMode::Rename(_, _) => true,
             AppMode::Confirm(_, _) => true,
-            AppMode::Help => true,
+            // AppMode::Help => true,
+
             _ => false,
         }
     }
