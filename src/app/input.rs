@@ -43,7 +43,7 @@ fn handle_overview(app: &mut App, key: KeyEvent) {
             }
             OverviewAction::RenameNotebook => {
                 let name = app.notebooks[app.selected_notebook_idx].name.clone();
-                let popup = RenamePopup::new(String::from("Rename Notebook"), name, None);
+                let popup = RenamePopup::new(String::from("Rename Notebook"), name, PendingAction::RenameNotebook);
                 app.mode = AppMode::Rename(popup, PendingAction::RenameNotebook);
             }
         }
@@ -69,7 +69,7 @@ fn handle_detail(app: &mut App, key: KeyEvent) {
                     if let Some(idx) = app.nb_detail.selected_task_idx {
                         let current_name = nb.tasks[idx].name.clone();
                         let popup =
-                            RenamePopup::new(String::from("Rename Task"), current_name, None);
+                            RenamePopup::new(String::from("Rename Task"), current_name, PendingAction::RenameTask);
                         app.mode = AppMode::Rename(popup, PendingAction::RenameTask);
                     }
                 }
@@ -82,7 +82,7 @@ fn handle_detail(app: &mut App, key: KeyEvent) {
                             let popup = RenamePopup::new(
                                 String::from("Rename Subtask"),
                                 current_name,
-                                None,
+                                PendingAction::RenameSubtask,
                             );
                             app.mode = AppMode::Rename(popup, PendingAction::RenameSubtask);
                         }
@@ -138,14 +138,7 @@ fn handle_inspector(app: &mut App, action: PendingAction, key: KeyEvent) {
         match signal {
             InspectorAction::Submit => actions::submit_inspector(app, action),
             InspectorAction::Cancel => {
-                if app.inspector.is_empty()
-                    || matches!(
-                        action,
-                        PendingAction::InspectTask
-                            | PendingAction::EditTask
-                            | PendingAction::EditNotebook
-                    )
-                {
+                if matches!(action, PendingAction::InspectTask) || app.inspector.is_empty() {
                     app.mode = app.last_window.clone();
                 } else {
                     let popup = ConfirmPopup::new(
