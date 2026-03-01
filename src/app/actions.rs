@@ -68,26 +68,45 @@ pub fn delete_element(
 // -- Prompts --
 pub fn prompt_delete(app: &mut App, action: PendingAction) {
     let (title, name) = match action {
-        PendingAction::DeleteNotebook => (
-            "Delete Notebook",
-            app.notebooks[app.selected_notebook_idx].name.clone(),
-        ),
-        PendingAction::DeleteTask => (
-            "Delete Task",
-            app.nb_detail.notebook.as_ref().unwrap().tasks
-                [app.nb_detail.selected_task_idx.unwrap()]
-            .name
-            .clone(),
-        ),
+        PendingAction::DeleteNotebook => {
+            let name = app
+                .notebooks
+                .get(app.selected_notebook_idx)
+                .map(|n| n.name.clone())
+                .unwrap_or_else(|| "Notebook".to_string());
+            ("Delete Notebook", name)
+        }
+        PendingAction::DeleteTask => {
+            let name = app
+                .nb_detail
+                .notebook
+                .as_ref()
+                .and_then(|nb| {
+                    app.nb_detail
+                        .selected_task_idx
+                        .and_then(|idx| nb.tasks.get(idx))
+                })
+                .map(|t| t.name.clone())
+                .unwrap_or_else(|| "Task".to_string());
+            ("Delete Task", name)
+        }
         PendingAction::DeleteSubtask => {
-            let t_idx = app.nb_detail.selected_task_idx.unwrap();
-            let s_idx = app.nb_detail.task_states[t_idx].state.selected().unwrap();
-            (
-                "Delete Subtask",
-                app.nb_detail.notebook.as_ref().unwrap().tasks[t_idx].subtasks[s_idx]
-                    .name
-                    .clone(),
-            )
+            let name = app
+                .nb_detail
+                .notebook
+                .as_ref()
+                .and_then(|nb| {
+                    app.nb_detail.selected_task_idx.and_then(|t_idx| {
+                        app.nb_detail.task_states.get(t_idx).and_then(|state| {
+                            state.state.selected().and_then(|s_idx| {
+                                nb.tasks.get(t_idx).and_then(|t| t.subtasks.get(s_idx))
+                            })
+                        })
+                    })
+                })
+                .map(|s| s.name.clone())
+                .unwrap_or_else(|| "Subtask".to_string());
+            ("Delete Subtask", name)
         }
         _ => ("Delete", String::new()),
     };
@@ -97,26 +116,45 @@ pub fn prompt_delete(app: &mut App, action: PendingAction) {
 
 pub fn prompt_rename(app: &mut App, action: PendingAction) {
     let (title, name) = match action {
-        PendingAction::RenameNotebook => (
-            "Rename Notebook",
-            app.notebooks[app.selected_notebook_idx].name.clone(),
-        ),
-        PendingAction::RenameTask => (
-            "Rename Task",
-            app.nb_detail.notebook.as_ref().unwrap().tasks
-                [app.nb_detail.selected_task_idx.unwrap()]
-            .name
-            .clone(),
-        ),
+        PendingAction::RenameNotebook => {
+            let name = app
+                .notebooks
+                .get(app.selected_notebook_idx)
+                .map(|n| n.name.clone())
+                .unwrap_or_else(|| "Notebook".to_string());
+            ("Rename Notebook", name)
+        }
+        PendingAction::RenameTask => {
+            let name = app
+                .nb_detail
+                .notebook
+                .as_ref()
+                .and_then(|nb| {
+                    app.nb_detail
+                        .selected_task_idx
+                        .and_then(|idx| nb.tasks.get(idx))
+                })
+                .map(|t| t.name.clone())
+                .unwrap_or_else(|| "Task".to_string());
+            ("Rename Task", name)
+        }
         PendingAction::RenameSubtask => {
-            let t_idx = app.nb_detail.selected_task_idx.unwrap();
-            let s_idx = app.nb_detail.task_states[t_idx].state.selected().unwrap();
-            (
-                "Rename Subtask",
-                app.nb_detail.notebook.as_ref().unwrap().tasks[t_idx].subtasks[s_idx]
-                    .name
-                    .clone(),
-            )
+            let name = app
+                .nb_detail
+                .notebook
+                .as_ref()
+                .and_then(|nb| {
+                    app.nb_detail.selected_task_idx.and_then(|t_idx| {
+                        app.nb_detail.task_states.get(t_idx).and_then(|state| {
+                            state.state.selected().and_then(|s_idx| {
+                                nb.tasks.get(t_idx).and_then(|t| t.subtasks.get(s_idx))
+                            })
+                        })
+                    })
+                })
+                .map(|s| s.name.clone())
+                .unwrap_or_else(|| "Subtask".to_string());
+            ("Rename Subtask", name)
         }
         _ => ("Rename", String::new()),
     };
