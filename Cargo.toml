@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/Quippy22/Rusty-Do"
 homepage = "https://github.com/Quippy22/Rusty-Do"
 readme = "README.md"
-categories = ["command-line-utilities", "productivity"]
+categories = ["command-line-utilities"]
 keywords = ["tui", "todo", "vim", "task-manager"]
 
 [[bin]]
