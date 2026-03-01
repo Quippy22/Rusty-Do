@@ -3,64 +3,52 @@ pub mod input;
 
 use crossterm::event::KeyEvent;
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 use crate::app::actions::PendingAction;
 use crate::models::notebook::Notebook;
 use crate::storage::{paths::FileSystem, persistence::Persistence};
 use crate::ui::{
-    confirm::ConfirmPopup, inspect_window::Inspector, notebook_detail::NotebookDetail,
-    overview::Overview, rename::RenamePopup,
+    confirm::ConfirmPopup, help::HelpPopup, inspect_window::Inspector,
+    notebook_detail::NotebookDetail, overview::Overview, rename::RenamePopup,
 };
 
 #[derive(Clone)]
 pub enum AppMode {
     // -- Windows --
-    Overview,       // The main window
-    NotebookDetail, // See and interact with the tasks of one notebook
+    Overview,
+    NotebookDetail,
     Add(PendingAction),
 
     // -- Popups --
     Confirm(ConfirmPopup, PendingAction),
     Rename(RenamePopup, PendingAction),
-    // Help, // See keybinds
+    Help,
 }
 
 impl AppMode {
     pub fn can_quit(&self) -> bool {
-        match self {
-            AppMode::Overview => true,
-            AppMode::NotebookDetail => true,
-
-            _ => false,
-        }
+        matches!(self, AppMode::Overview | AppMode::NotebookDetail)
     }
 
     pub fn is_popup(&self) -> bool {
-        match self {
-            AppMode::Rename(_, _) => true,
-            AppMode::Confirm(_, _) => true,
-            // AppMode::Help => true,
-
-            _ => false,
-        }
+        matches!(
+            self,
+            AppMode::Rename(_, _) | AppMode::Confirm(_, _) | AppMode::Help
+        )
     }
 }
 
 #[derive(Clone)]
 pub struct App {
-    // General
     pub mode: AppMode,
-    pub last_window: AppMode,
+    pub last_window: AppMode, // Transient state for Esc/Cancel
     pub storage: Persistence,
     pub should_quit: bool,
     pub notebooks: Vec<Notebook>,
     pub selected_notebook_idx: usize,
-    // Overview
     pub overview: Overview,
-    // Notebook Detail
     pub nb_detail: NotebookDetail,
-    // Inspector (Add/Edit Mode)
     pub inspector: Inspector,
 }
 
@@ -99,16 +87,46 @@ impl App {
         let area = f.area();
 
         match &mut self.mode {
-            // -- Normal Windows --
             AppMode::Overview => self.overview.render(f, area, true),
             AppMode::NotebookDetail => self.nb_detail.render(f, area),
 
-            // -- Popups --
+            AppMode::Add(_) => self.render_inspector_view(f, area),
+
+            AppMode::Help => {
+                if matches!(self.last_window, AppMode::Add(_)) {
+                    self.render_inspector_view(f, area);
+                } else {
+                    match &self.last_window {
+                        AppMode::Overview => self.overview.render(f, area, true),
+                        AppMode::NotebookDetail => self.nb_detail.render(f, area),
+                        _ => {}
+                    }
+                }
+                HelpPopup::render(f, area, &self.last_window);
+            }
+
             m if m.is_popup() => {
-                match &self.last_window {
-                    AppMode::Overview => self.overview.render(f, area, true),
-                    AppMode::NotebookDetail => self.nb_detail.render(f, area),
-                    _ => {}
+                let over_inspector = match m {
+                    AppMode::Confirm(_, act) | AppMode::Rename(_, act) => matches!(
+                        act,
+                        PendingAction::AddNotebook
+                            | PendingAction::EditNotebook
+                            | PendingAction::AddTaskBefore
+                            | PendingAction::AddTaskAfter
+                            | PendingAction::EditTask
+                            | PendingAction::InspectTask
+                    ),
+                    _ => false,
+                };
+
+                if over_inspector || matches!(self.last_window, AppMode::Add(_)) {
+                    self.render_inspector_view(f, area);
+                } else {
+                    match &self.last_window {
+                        AppMode::Overview => self.overview.render(f, area, true),
+                        AppMode::NotebookDetail => self.nb_detail.render(f, area),
+                        _ => {}
+                    }
                 }
                 match &mut self.mode {
                     AppMode::Confirm(popup, _) => popup.render(f, area),
@@ -116,27 +134,27 @@ impl App {
                     _ => {}
                 }
             }
-
-            // -- Inspector --
-            AppMode::Add(_) => {
-                let chunks = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-                    .spacing(1)
-                    .split(area);
-
-                self.inspector.render(f, chunks[1]);
-
-                match &self.last_window {
-                    AppMode::Overview => self.overview.render(f, chunks[0], false),
-                    AppMode::NotebookDetail => self.nb_detail.render(f, chunks[0]),
-                    _ => {}
-                }
-            }
             _ => {}
         }
     }
 
+    fn render_inspector_view(&mut self, f: &mut Frame, area: Rect) {
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .spacing(1)
+            .split(area);
+
+        self.inspector.render(f, chunks[1]);
+
+        if self.inspector.list_label == "Tasks" {
+            self.overview.render(f, chunks[0], false);
+        } else {
+            self.nb_detail.render(f, chunks[0]);
+        }
+    }
+
+    // -- Input Handling --
     pub fn handle_input(&mut self, key: KeyEvent) {
         input::handle_input(self, key);
     }
@@ -174,18 +192,11 @@ impl App {
     }
 
     pub fn refresh_nb_detail(&mut self, notebook: Notebook) {
-        // 1. Update master list
         self.notebooks[self.selected_notebook_idx] = notebook.clone();
-
-        // 2. Update active view
         self.nb_detail.notebook = Some(notebook.clone());
-
-        // 3. Sync UI states (re-initialize to match new counts)
         self.nb_detail.task_states = (0..notebook.tasks.len())
             .map(|_| crate::ui::task_column::TaskColumnState::new())
             .collect();
-
-        // 4. Persist
         let _ = self.storage.save_notebook(&notebook);
     }
 }

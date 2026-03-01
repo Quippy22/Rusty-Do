@@ -9,9 +9,21 @@ use crate::ui::{
 };
 
 pub fn handle_input(app: &mut App, key: KeyEvent) {
-    // -- Global --
+    // -- Global Help Exit --
+    if matches!(app.mode, AppMode::Help) {
+        actions::exit_help(app);
+        return;
+    }
+
+    // -- Global Quit --
     if key.code == KeyCode::Char('q') && app.mode.can_quit() {
         app.quit();
+        return;
+    }
+
+    // -- Global Help Open --
+    if key.code == KeyCode::Char('?') {
+        actions::show_help(app);
         return;
     }
 
@@ -22,6 +34,7 @@ pub fn handle_input(app: &mut App, key: KeyEvent) {
         AppMode::Add(action) => handle_inspector(app, action, key),
         AppMode::Confirm(_, action) => handle_confirm(app, action, key),
         AppMode::Rename(popup, action) => handle_rename(app, popup, action, key),
+        AppMode::Help => unreachable!("Help handled at top of function"),
     }
 }
 
@@ -109,8 +122,6 @@ fn handle_inspector(app: &mut App, action: PendingAction, key: KeyEvent) {
 }
 
 fn handle_confirm(app: &mut App, action: PendingAction, key: KeyEvent) {
-    // Note: handle_input locally here is fine as it's just interpreting the popup's state
-    // But the result MUST be an action call.
     let confirmed = match &app.mode {
         AppMode::Confirm(p, _) => p.clone().handle_input(key),
         _ => None,

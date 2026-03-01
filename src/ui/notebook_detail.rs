@@ -164,24 +164,68 @@ impl NotebookDetail {
                 }
                 None
             }
-            KeyCode::Char('X') => Some(NotebookViewAction::ConfirmToggleTask),
+            KeyCode::Char('X') => {
+                if self.selected_task_idx.is_some() && task_count > 0 {
+                    Some(NotebookViewAction::ConfirmToggleTask)
+                } else { None }
+            }
 
             // Renames
-            KeyCode::Char('r') => Some(NotebookViewAction::RenameTask),
-            KeyCode::Char('e') => Some(NotebookViewAction::RenameSubtask),
-            KeyCode::Char('E') => Some(NotebookViewAction::EditTask),
+            KeyCode::Char('r') => {
+                if self.selected_task_idx.is_some() && task_count > 0 {
+                    Some(NotebookViewAction::RenameTask)
+                } else { None }
+            }
+            KeyCode::Char('e') => {
+                if let Some(t_idx) = self.selected_task_idx {
+                    if self.task_states[t_idx].state.selected().is_some() {
+                        return Some(NotebookViewAction::RenameSubtask);
+                    }
+                }
+                None
+            }
+            KeyCode::Char('E') => {
+                if self.selected_task_idx.is_some() && task_count > 0 {
+                    Some(NotebookViewAction::EditTask)
+                } else { None }
+            }
 
-            // Adds
+            // Adds (Tasks can always be added)
             KeyCode::Char('A') => Some(NotebookViewAction::AddTaskAfter),
             KeyCode::Char('I') => Some(NotebookViewAction::AddTaskBefore),
-            KeyCode::Char('a') => Some(NotebookViewAction::AddSubtaskAfter),
-            KeyCode::Char('i') => Some(NotebookViewAction::AddSubtaskBefore),
+            
+            // Subtask Adds (Require a task to exist)
+            KeyCode::Char('a') => {
+                if self.selected_task_idx.is_some() && task_count > 0 {
+                    Some(NotebookViewAction::AddSubtaskAfter)
+                } else { None }
+            }
+            KeyCode::Char('i') => {
+                if self.selected_task_idx.is_some() && task_count > 0 {
+                    Some(NotebookViewAction::AddSubtaskBefore)
+                } else { None }
+            }
 
             // Deletes
-            KeyCode::Char('D') => Some(NotebookViewAction::DeleteTask),
-            KeyCode::Char('d') => Some(NotebookViewAction::DeleteSubtask),
+            KeyCode::Char('D') => {
+                if self.selected_task_idx.is_some() && task_count > 0 {
+                    Some(NotebookViewAction::DeleteTask)
+                } else { None }
+            }
+            KeyCode::Char('d') => {
+                if let Some(t_idx) = self.selected_task_idx {
+                    if self.task_states[t_idx].state.selected().is_some() {
+                        return Some(NotebookViewAction::DeleteSubtask);
+                    }
+                }
+                None
+            }
 
-            KeyCode::Enter => Some(NotebookViewAction::InspectTask),
+            KeyCode::Enter => {
+                if self.selected_task_idx.is_some() && task_count > 0 {
+                    Some(NotebookViewAction::InspectTask)
+                } else { None }
+            }
 
             _ => None,
         }

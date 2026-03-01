@@ -137,6 +137,30 @@ pub fn prompt_toggle_task(app: &mut App) {
     }
 }
 
+pub fn show_help(app: &mut App) {
+    if !app.mode.is_popup() {
+        app.last_window = app.mode.clone();
+    }
+    app.mode = AppMode::Help;
+}
+
+pub fn exit_help(app: &mut App) {
+    app.mode = app.last_window.clone();
+
+    // Restore last_window to the base view if we are returning to the Inspector,
+    // breaking the infinite 'Esc' loop.
+    if let AppMode::Add(action) = &app.mode {
+        match action {
+            PendingAction::AddNotebook | PendingAction::EditNotebook => {
+                app.last_window = AppMode::Overview;
+            }
+            _ => {
+                app.last_window = AppMode::NotebookDetail;
+            }
+        }
+    }
+}
+
 // -- Notebook Actions --
 pub fn add_notebook(app: &mut App) {
     app.last_window = app.mode.clone();
@@ -270,17 +294,79 @@ pub fn confirm_success(app: &mut App, action: PendingAction) {
                 }
             }
         }
+        PendingAction::EditTask | PendingAction::InspectTask | PendingAction::EditNotebook => {
+            // Discarding edits means we must revert the real-time memory mutations
+            // by reloading the unmutated state from disk.
+            app.refresh_notebooks_list();
+        }
         _ => {}
     }
     app.mode = app.last_window.clone();
 }
 
 pub fn prompt_discard_changes(app: &mut App, action: PendingAction) {
-    let popup = ConfirmPopup::new(
-        String::from("Discard Changes"),
-        String::from("Discard unsaved text?"),
-    );
-    app.mode = AppMode::Confirm(popup, action);
+    let is_dirty = match action {
+        PendingAction::AddNotebook | PendingAction::AddTaskBefore | PendingAction::AddTaskAfter => {
+            let default_name = if matches!(action, PendingAction::AddNotebook) {
+                "New Notebook"
+            } else {
+                "New Task"
+            };
+            app.inspector.title_input != default_name
+                || !app.inspector.desc_input.is_empty()
+                || !app.inspector.list_items.is_empty()
+                || !app.inspector.task_input.trim().is_empty()
+        }
+        PendingAction::EditNotebook => {
+            let id = &app.notebooks[app.selected_notebook_idx].id;
+            if let Ok(disk_nb) = app.storage.load_notebook(id) {
+                let task_names: Vec<String> =
+                    disk_nb.tasks.iter().map(|t| t.name.clone()).collect();
+                app.inspector.title_input != disk_nb.name
+                    || app.inspector.desc_input != disk_nb.description
+                    || app.inspector.list_items != task_names
+            } else {
+                true // Fallback to dirty if disk read fails
+            }
+        }
+        PendingAction::EditTask | PendingAction::InspectTask => {
+            if let Some(nb) = &app.nb_detail.notebook {
+                if let Ok(disk_nb) = app.storage.load_notebook(&nb.id) {
+                    if let Some(idx) = app.nb_detail.selected_task_idx {
+                        if idx < disk_nb.tasks.len() {
+                            let task = &disk_nb.tasks[idx];
+                            let sub_names: Vec<String> =
+                                task.subtasks.iter().map(|s| s.name.clone()).collect();
+                            app.inspector.title_input != task.name
+                                || app.inspector.desc_input != task.description
+                                || app.inspector.list_items != sub_names
+                                || !app.inspector.task_input.trim().is_empty()
+                        } else {
+                            true
+                        }
+                    } else {
+                        false
+                    }
+                } else {
+                    true
+                }
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+
+    if is_dirty {
+        let popup = ConfirmPopup::new(
+            String::from("Discard Changes"),
+            String::from("Discard unsaved text?"),
+        );
+        app.mode = AppMode::Confirm(popup, action);
+    } else {
+        cleanup_ghost(app, action);
+        app.mode = app.last_window.clone();
+    }
 }
 
 pub fn transition_to_edit(app: &mut App, action: PendingAction) {
