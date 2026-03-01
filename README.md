@@ -2,7 +2,7 @@
 
 ---
 
-**Rusty-Do** is a high-speed, Vim-inspired TUI task manager designed for power users seeking to manage hierarchical tasks without leaving the home row. 
+**Rusty-Do** is a minimal, Vim-inspired terminal planner designed for hierarchical task organization. 
 
 Heavily inspired by the card-and-list mechanics of [Trello](https://trello.com) and the [kanban-tui](https://github.com/fulsomenko/kanban) workflow, it organizes tasks into spatial, side-by-side vertical columns. This layout provides high-level project visibility while maintaining rapid, low-latency interaction and local-first persistence.
 
