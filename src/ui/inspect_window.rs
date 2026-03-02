@@ -366,7 +366,7 @@ impl Inspector {
             if self.focused_field == InspectField::Title && self.mode != InspectMode::View {
                 let prefix = &self.title_input[..self.cursor_pos];
                 let suffix = &self.title_input[self.cursor_pos..];
-                format!("{}█{}", prefix, suffix)
+                format!("{}|{}", prefix, suffix)
             } else {
                 self.title_input.clone()
             };
@@ -390,7 +390,7 @@ impl Inspector {
             if self.focused_field == InspectField::Description && self.mode != InspectMode::View {
                 let prefix = &self.desc_input[..self.cursor_pos];
                 let suffix = &self.desc_input[self.cursor_pos..];
-                format!("{}█{}", prefix, suffix)
+                format!("{}|{}", prefix, suffix)
             } else {
                 self.desc_input.clone()
             };
@@ -421,7 +421,7 @@ impl Inspector {
         if self.focused_field == InspectField::Contents && self.mode != InspectMode::View {
             let prefix = &self.task_input[..self.cursor_pos];
             let suffix = &self.task_input[self.cursor_pos..];
-            items.push(ListItem::new(format!(" • {}█{}", prefix, suffix)));
+            items.push(ListItem::new(format!(" • {}|{}", prefix, suffix)));
         }
 
         f.render_widget(List::new(items), contents_block_inner);

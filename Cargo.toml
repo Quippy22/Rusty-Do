@@ -1,6 +1,6 @@
 [package]
 name = "rusty-do"
-version = "1.0.1"
+version = "1.1.0"
 edition = "2024"
 authors = ["Quippy22"]
 description = "A minimal, Vim-inspired terminal planner with hierarchical task organization."
