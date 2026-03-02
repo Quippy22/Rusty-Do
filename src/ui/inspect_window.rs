@@ -35,6 +35,7 @@ pub struct Inspector {
     pub list_items: Vec<String>,
     pub list_label: String,
     pub focused_field: InspectField,
+    pub cursor_pos: usize,
 }
 
 use crate::models::notebook::Notebook;
@@ -48,6 +49,7 @@ impl Inspector {
         list_items: Vec<String>,
         list_label: String,
     ) -> Self {
+        let cursor_pos = title_input.len();
         Self {
             mode,
             title_input,
@@ -56,6 +58,7 @@ impl Inspector {
             list_items,
             list_label,
             focused_field: InspectField::Title,
+            cursor_pos,
         }
     }
 
@@ -76,6 +79,7 @@ impl Inspector {
             _ => (InspectMode::Add, String::new(), String::new(), Vec::new()),
         };
 
+        let cursor_pos = title.len();
         Self {
             mode,
             title_input: title,
@@ -84,6 +88,7 @@ impl Inspector {
             list_items: items,
             list_label,
             focused_field: InspectField::Title,
+            cursor_pos,
         }
     }
     pub fn handle_input(&mut self, key: KeyEvent) -> Option<InspectorAction> {
@@ -124,6 +129,7 @@ impl Inspector {
                     InspectField::Description => InspectField::Contents,
                     InspectField::Contents => InspectField::Title,
                 };
+                self.reset_cursor_to_end();
             }
             KeyCode::BackTab => {
                 self.focused_field = match self.focused_field {
@@ -131,6 +137,50 @@ impl Inspector {
                     InspectField::Description => InspectField::Title,
                     InspectField::Contents => InspectField::Description,
                 };
+                self.reset_cursor_to_end();
+            }
+            KeyCode::Left => {
+                if self.cursor_pos > 0 {
+                    self.cursor_pos -= 1;
+                }
+            }
+            KeyCode::Right => {
+                let len = self.get_current_buffer().len();
+                if self.cursor_pos < len {
+                    self.cursor_pos += 1;
+                }
+            }
+            KeyCode::Up => {
+                if self.focused_field == InspectField::Description {
+                    self.move_cursor_vertical(-1);
+                } else {
+                    // Cycle fields upwards
+                    self.focused_field = match self.focused_field {
+                        InspectField::Title => InspectField::Contents,
+                        InspectField::Description => InspectField::Title,
+                        InspectField::Contents => InspectField::Description,
+                    };
+                    self.reset_cursor_to_end();
+                }
+            }
+            KeyCode::Down => {
+                if self.focused_field == InspectField::Description {
+                    self.move_cursor_vertical(1);
+                } else {
+                    // Cycle fields downwards
+                    self.focused_field = match self.focused_field {
+                        InspectField::Title => InspectField::Description,
+                        InspectField::Description => InspectField::Contents,
+                        InspectField::Contents => InspectField::Title,
+                    };
+                    self.reset_cursor_to_end();
+                }
+            }
+            KeyCode::Home => {
+                self.cursor_pos = 0;
+            }
+            KeyCode::End => {
+                self.cursor_pos = self.get_current_buffer().len();
             }
 
             // -- Guided Flow --
@@ -138,49 +188,136 @@ impl Inspector {
                 InspectField::Title => {
                     if !self.title_input.trim().is_empty() {
                         self.focused_field = InspectField::Description;
+                        self.reset_cursor_to_end();
                     }
                 }
                 InspectField::Description => {
                     if shift {
                         self.focused_field = InspectField::Contents;
+                        self.reset_cursor_to_end();
                     } else {
-                        self.desc_input.push('\n');
+                        self.desc_input.insert(self.cursor_pos, '\n');
+                        self.cursor_pos += 1;
                     }
                 }
                 InspectField::Contents => {
                     self.flush_task_buffer();
+                    self.cursor_pos = 0;
                 }
             },
 
             // -- Typing --
-            KeyCode::Backspace => match self.focused_field {
-                InspectField::Title => {
-                    self.title_input.pop();
+            KeyCode::Backspace => {
+                if self.cursor_pos > 0 {
+                    match self.focused_field {
+                        InspectField::Title => {
+                            self.title_input.remove(self.cursor_pos - 1);
+                        }
+                        InspectField::Description => {
+                            self.desc_input.remove(self.cursor_pos - 1);
+                        }
+                        InspectField::Contents => {
+                            self.task_input.remove(self.cursor_pos - 1);
+                        }
+                    }
+                    self.cursor_pos -= 1;
                 }
-                InspectField::Description => {
-                    self.desc_input.pop();
+            }
+            KeyCode::Delete => {
+                let len = self.get_current_buffer().len();
+                if self.cursor_pos < len {
+                    match self.focused_field {
+                        InspectField::Title => {
+                            self.title_input.remove(self.cursor_pos);
+                        }
+                        InspectField::Description => {
+                            self.desc_input.remove(self.cursor_pos);
+                        }
+                        InspectField::Contents => {
+                            self.task_input.remove(self.cursor_pos);
+                        }
+                    }
                 }
-                InspectField::Contents => {
-                    self.task_input.pop();
-                }
-            },
+            }
 
-            KeyCode::Char(c) => match self.focused_field {
-                InspectField::Title => {
-                    self.title_input.push(c);
+            KeyCode::Char(c) => {
+                match self.focused_field {
+                    InspectField::Title => {
+                        self.title_input.insert(self.cursor_pos, c);
+                    }
+                    InspectField::Description => {
+                        self.desc_input.insert(self.cursor_pos, c);
+                    }
+                    InspectField::Contents => {
+                        self.task_input.insert(self.cursor_pos, c);
+                    }
                 }
-                InspectField::Description => {
-                    self.desc_input.push(c);
-                }
-                InspectField::Contents => {
-                    self.task_input.push(c);
-                }
-            },
+                self.cursor_pos += 1;
+            }
 
             _ => {}
         }
 
         None
+    }
+
+    fn reset_cursor_to_end(&mut self) {
+        self.cursor_pos = self.get_current_buffer().len();
+    }
+
+    fn get_current_buffer(&self) -> &String {
+        match self.focused_field {
+            InspectField::Title => &self.title_input,
+            InspectField::Description => &self.desc_input,
+            InspectField::Contents => &self.task_input,
+        }
+    }
+
+    fn move_cursor_vertical(&mut self, dir: i32) {
+        let text = &self.desc_input;
+        if text.is_empty() {
+            return;
+        }
+
+        // 1. Find line boundaries
+        let lines: Vec<&str> = text.split('\n').collect();
+        // If it ends with \n, split leaves an empty string, which is correct
+
+        // 2. Find current line and column
+        let mut current_line = 0;
+        let mut current_col = 0;
+        let mut char_count = 0;
+
+        for (i, line) in lines.iter().enumerate() {
+            let next_boundary = char_count + line.len();
+            if self.cursor_pos <= next_boundary {
+                current_line = i;
+                current_col = self.cursor_pos - char_count;
+                break;
+            }
+            char_count += line.len() + 1; // +1 for the newline
+        }
+
+        // 3. Move to target line
+        let target_line = (current_line as i32 + dir)
+            .max(0)
+            .min(lines.len() as i32 - 1) as usize;
+
+        if target_line == current_line {
+            return;
+        }
+
+        // 4. Calculate new cursor position
+        let mut new_pos = 0;
+        for i in 0..target_line {
+            new_pos += lines[i].len() + 1;
+        }
+
+        // Clamp column to target line length
+        let target_col = current_col.min(lines[target_line].len());
+        new_pos += target_col;
+
+        self.cursor_pos = new_pos;
     }
 
     fn flush_task_buffer(&mut self) {
@@ -227,7 +364,9 @@ impl Inspector {
 
         let title_display =
             if self.focused_field == InspectField::Title && self.mode != InspectMode::View {
-                format!("{}█", self.title_input)
+                let prefix = &self.title_input[..self.cursor_pos];
+                let suffix = &self.title_input[self.cursor_pos..];
+                format!("{}█{}", prefix, suffix)
             } else {
                 self.title_input.clone()
             };
@@ -249,7 +388,9 @@ impl Inspector {
 
         let desc_display =
             if self.focused_field == InspectField::Description && self.mode != InspectMode::View {
-                format!("{}█", self.desc_input)
+                let prefix = &self.desc_input[..self.cursor_pos];
+                let suffix = &self.desc_input[self.cursor_pos..];
+                format!("{}█{}", prefix, suffix)
             } else {
                 self.desc_input.clone()
             };
@@ -278,7 +419,9 @@ impl Inspector {
 
         // Show the current typing buffer if focused
         if self.focused_field == InspectField::Contents && self.mode != InspectMode::View {
-            items.push(ListItem::new(format!(" • {}█", self.task_input)));
+            let prefix = &self.task_input[..self.cursor_pos];
+            let suffix = &self.task_input[self.cursor_pos..];
+            items.push(ListItem::new(format!(" • {}█{}", prefix, suffix)));
         }
 
         f.render_widget(List::new(items), contents_block_inner);
