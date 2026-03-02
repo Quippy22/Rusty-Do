@@ -251,6 +251,46 @@ pub fn exit_notebook(app: &mut App) {
     app.last_window = AppMode::Overview;
 }
 
+// -- Swapping --
+
+pub fn swap_task(app: &mut App, dir: i32) {
+    if let Some(mut nb) = app.nb_detail.notebook.clone() {
+        if let Some(t_idx) = app.nb_detail.selected_task_idx {
+            let target_idx = (t_idx as i32 + dir).max(0).min(nb.tasks.len() as i32 - 1) as usize;
+            if t_idx != target_idx {
+                nb.tasks.swap(t_idx, target_idx);
+                app.nb_detail.selected_task_idx = Some(target_idx);
+                app.nb_detail.task_states.swap(t_idx, target_idx);
+                app.refresh_nb_detail(nb);
+            }
+        }
+    }
+}
+
+pub fn swap_subtask(app: &mut App, dir: i32) {
+    if let Some(mut nb) = app.nb_detail.notebook.clone() {
+        if let Some(t_idx) = app.nb_detail.selected_task_idx {
+            if let Some(s_idx) = app.nb_detail.task_states[t_idx].state.selected() {
+                let target_idx = (s_idx as i32 + dir)
+                    .max(0)
+                    .min(nb.tasks[t_idx].subtasks.len() as i32 - 1)
+                    as usize;
+
+                if s_idx != target_idx {
+                    nb.tasks[t_idx].subtasks.swap(s_idx, target_idx);
+
+                    // Update selection in state BEFORE refreshing detail
+                    app.nb_detail.task_states[t_idx]
+                        .state
+                        .select(Some(target_idx));
+
+                    app.refresh_nb_detail(nb);
+                }
+            }
+        }
+    }
+}
+
 // -- Task Actions --
 pub fn add_task(app: &mut App, action: PendingAction) {
     if let Some(nb) = &mut app.nb_detail.notebook {

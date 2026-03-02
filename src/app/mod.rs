@@ -194,9 +194,14 @@ impl App {
     pub fn refresh_nb_detail(&mut self, notebook: Notebook) {
         self.notebooks[self.selected_notebook_idx] = notebook.clone();
         self.nb_detail.notebook = Some(notebook.clone());
-        self.nb_detail.task_states = (0..notebook.tasks.len())
-            .map(|_| crate::ui::task_column::TaskColumnState::new())
-            .collect();
+
+        // Preserve states unless the task count changed
+        if self.nb_detail.task_states.len() != notebook.tasks.len() {
+            self.nb_detail.task_states = (0..notebook.tasks.len())
+                .map(|_| crate::ui::task_column::TaskColumnState::new())
+                .collect();
+        }
+
         let _ = self.storage.save_notebook(&notebook);
     }
 }

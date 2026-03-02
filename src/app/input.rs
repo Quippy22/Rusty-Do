@@ -59,6 +59,33 @@ fn handle_overview(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_detail(app: &mut App, key: KeyEvent) {
+    let shift = key
+        .modifiers
+        .contains(crossterm::event::KeyModifiers::SHIFT);
+
+    // -- Swapping (Shift + HJKL) --
+    if shift {
+        match key.code {
+            KeyCode::Char('H') | KeyCode::Left => {
+                actions::swap_task(app, -1);
+                return;
+            }
+            KeyCode::Char('L') | KeyCode::Right => {
+                actions::swap_task(app, 1);
+                return;
+            }
+            KeyCode::Char('J') | KeyCode::Down => {
+                actions::swap_subtask(app, 1);
+                return;
+            }
+            KeyCode::Char('K') | KeyCode::Up => {
+                actions::swap_subtask(app, -1);
+                return;
+            }
+            _ => {}
+        }
+    }
+
     if let Some(action) = app.nb_detail.handle_input(key) {
         match action {
             NotebookViewAction::Exit => actions::exit_notebook(app),
