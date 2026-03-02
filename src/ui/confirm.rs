@@ -1,67 +1,129 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     prelude::Stylize,
     style::{Color, Style},
-    widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
+    text::{Line, Span},
+    widgets::{Block, BorderType, Clear, Paragraph, Wrap},
 };
 
 #[derive(Clone)]
 pub struct ConfirmPopup {
     pub title: String,
     pub message: String,
+    pub buttons: Vec<String>,
+    pub selected_idx: usize,
 }
 
 impl ConfirmPopup {
-    pub fn new(title: String, message: String) -> Self {
-        Self { title, message }
+    pub fn new(title: String, message: String, buttons: Vec<String>) -> Self {
+        Self {
+            title,
+            message,
+            buttons,
+            selected_idx: 0,
+        }
     }
 
-    pub fn handle_input(&self, key: KeyEvent) -> Option<bool> {
+    pub fn handle_input(&mut self, key: KeyEvent) -> Option<usize> {
         match key.code {
-            KeyCode::Char('y') | KeyCode::Char('Y') => Some(true),
-            _ => Some(false),
+            KeyCode::Enter => Some(self.selected_idx),
+            KeyCode::Esc => None,
+            KeyCode::Left | KeyCode::Char('h') => {
+                if self.selected_idx > 0 {
+                    self.selected_idx -= 1;
+                }
+                None
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                if self.selected_idx < self.buttons.len() - 1 {
+                    self.selected_idx += 1;
+                }
+                None
+            }
+            KeyCode::Char(c) => {
+                // Check if any button starts with this character (Shortcut logic)
+                let target = c.to_lowercase().next()?;
+                for (i, btn) in self.buttons.iter().enumerate() {
+                    if btn.to_lowercase().starts_with(target) {
+                        return Some(i);
+                    }
+                }
+                None
+            }
+            _ => None,
         }
     }
 
     pub fn render(&self, f: &mut Frame, area: Rect) {
-        // Fix size: 40 columns wide, 6 lines tall
-        let popup_area = self.centered_rect(40, 6, area);
+        let width = (self.buttons.len() as u16 * 18).max(45).min(area.width);
+        let height = 8;
+        let popup_area = self.centered_rect(width, height, area);
         f.render_widget(Clear, popup_area);
 
         let block = Block::bordered()
             .title(self.title.as_str())
             .title_alignment(Alignment::Center)
-            .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::Red));
 
-        // 1. Get the area inside the borders
         let inner_area = block.inner(popup_area);
-
-        // 2. Draw the borders to the screen first
         f.render_widget(block, popup_area);
 
-        // 3. Split the inside space: Top gets everything, Bottom gets 1 line
-        let inner_layout = Layout::default()
+        let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Min(0),    // This pushes the bottom constraint down
-                Constraint::Length(1), // Exactly 1 line for the Yes/No
+                Constraint::Min(0),
+                Constraint::Length(1), // Spacer
+                Constraint::Length(1), // Buttons
             ])
+            .margin(1)
             .split(inner_area);
 
-        let message = Paragraph::new(self.message.as_str())
-            .alignment(Alignment::Center)
-            .wrap(Wrap { trim: true });
+        // 1. Render Message
+        f.render_widget(
+            Paragraph::new(self.message.as_str())
+                .alignment(Alignment::Center)
+                .wrap(Wrap { trim: true }),
+            layout[0],
+        );
 
-        let buttons = Paragraph::new("(Y)es  /  (N)o".bold()).alignment(Alignment::Center);
+        // 2. Render Buttons using Flex
+        let button_constraints = vec![Constraint::Length(15); self.buttons.len()];
+        let button_chunks = Layout::horizontal(button_constraints)
+            .flex(Flex::Center)
+            .split(layout[2]);
 
-        // 4. Render the text into their respective layout chunks
-        f.render_widget(message, inner_layout[0]);
-        f.render_widget(buttons, inner_layout[1]);
+        for (i, btn) in self.buttons.iter().enumerate() {
+            let display_name = self.format_button_label(btn);
+            let style = if i == self.selected_idx {
+                Style::default().bg(Color::White).fg(Color::Black).bold()
+            } else {
+                Style::default().fg(Color::Gray)
+            };
+
+            f.render_widget(
+                Paragraph::new(display_name).alignment(Alignment::Center).style(style),
+                button_chunks[i],
+            );
+        }
     }
+
+    fn format_button_label<'a>(&self, label: &'a str) -> Line<'a> {
+        if let Some(first) = label.chars().next() {
+            let rest = &label[first.len_utf8()..];
+            Line::from(vec![
+                Span::raw("("),
+                Span::raw(first.to_string()).bold().underlined(),
+                Span::raw(")"),
+                Span::raw(rest),
+            ])
+        } else {
+            Line::from(label)
+        }
+    }
+
     fn centered_rect(&self, width: u16, height: u16, r: Rect) -> Rect {
         let popup_layout = Layout::default()
             .direction(Direction::Vertical)

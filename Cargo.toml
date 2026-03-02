@@ -1,12 +1,12 @@
 [package]
 name = "rusty-do"
-version = "1.1.1"
+version = "1.2.0"
 edition = "2024"
 authors = ["Quippy22"]
 description = "A minimal, Vim-inspired terminal planner with hierarchical task organization."
 license = "MIT"
 repository = "https://github.com/Quippy22/Rusty-Do"
-homepage = "https://github.com/Quippy22/Rusty-Do"
+homepage = "https://github.com/Quippy22/Rusty-Do/releases"
 readme = "README.md"
 categories = ["command-line-utilities"]
 keywords = ["tui", "todo", "vim", "task-manager"]

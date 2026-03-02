@@ -122,17 +122,33 @@ fn handle_inspector(app: &mut App, action: PendingAction, key: KeyEvent) {
 }
 
 fn handle_confirm(app: &mut App, action: PendingAction, key: KeyEvent) {
-    let confirmed = match &app.mode {
-        AppMode::Confirm(p, _) => p.clone().handle_input(key),
-        _ => None,
+    let mut popup = match &app.mode {
+        AppMode::Confirm(p, _) => p.clone(),
+        _ => return,
     };
 
-    if let Some(yes) = confirmed {
-        if yes {
-            actions::confirm_success(app, action);
-        } else {
-            actions::confirm_cancel(app, action);
+    if let Some(button_idx) = popup.handle_input(key) {
+        match action {
+            PendingAction::AddNotebook
+            | PendingAction::EditNotebook
+            | PendingAction::AddTaskBefore
+            | PendingAction::AddTaskAfter
+            | PendingAction::EditTask
+            | PendingAction::InspectTask => match button_idx {
+                0 => actions::submit_inspector(app, action),
+                1 => actions::confirm_success(app, action),
+                _ => actions::confirm_cancel(app, action),
+            },
+            _ => {
+                if button_idx == 0 {
+                    actions::confirm_success(app, action);
+                } else {
+                    actions::confirm_cancel(app, action);
+                }
+            }
         }
+    } else {
+        app.mode = AppMode::Confirm(popup, action);
     }
 }
 

@@ -110,7 +110,11 @@ pub fn prompt_delete(app: &mut App, action: PendingAction) {
         }
         _ => ("Delete", String::new()),
     };
-    let popup = ConfirmPopup::new(title.into(), format!("Delete {}?", name));
+    let popup = ConfirmPopup::new(
+        title.into(),
+        format!("Delete {}?", name),
+        vec!["Yes".to_string(), "No".to_string()],
+    );
     app.mode = AppMode::Confirm(popup, action);
 }
 
@@ -169,6 +173,7 @@ pub fn prompt_toggle_task(app: &mut App) {
             let popup = ConfirmPopup::new(
                 "Toggle Task".into(),
                 format!("Toggle completion for {}?", name),
+                vec!["Yes".to_string(), "No".to_string()],
             );
             app.mode = AppMode::Confirm(popup, PendingAction::ToggleTask);
         }
@@ -397,8 +402,13 @@ pub fn prompt_discard_changes(app: &mut App, action: PendingAction) {
 
     if is_dirty {
         let popup = ConfirmPopup::new(
-            String::from("Discard Changes"),
-            String::from("Discard unsaved text?"),
+            String::from("Unsaved Changes"),
+            String::from("You have unsaved text. What would you like to do?"),
+            vec![
+                "Save & Exit".to_string(),
+                "Discard".to_string(),
+                "Cancel".to_string(),
+            ],
         );
         app.mode = AppMode::Confirm(popup, action);
     } else {
