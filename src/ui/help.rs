@@ -1,7 +1,7 @@
 use ratatui::{
     Frame,
-    layout::{Alignment, Rect},
-    style::{Style, palette::tailwind},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Style, palette::tailwind, Modifier},
     widgets::{Block, BorderType, Clear, Paragraph},
 };
 
@@ -11,55 +11,131 @@ pub struct HelpPopup;
 
 impl HelpPopup {
     pub fn render(f: &mut Frame, area: Rect, context: &AppMode) {
-        // Anchor to bottom-left
-        let width = 50;
-        let height = 12;
-        let popup_area = Rect {
-            x: area.x + 1,
-            y: area.height.saturating_sub(height + 1),
-            width: width.min(area.width.saturating_sub(2)),
-            height: height.min(area.height.saturating_sub(2)),
-        };
+        let width = 60;
+        let height = 18;
+        let popup_area = Self::centered_rect(width, height, area);
 
         f.render_widget(Clear, popup_area);
 
         let block = Block::bordered()
-            .title(" Help ")
-            .title_alignment(Alignment::Left)
+            .title(" Help - Keybindings ")
+            .title_alignment(Alignment::Center)
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(tailwind::AMBER.c400));
 
-        let mut help_lines = Vec::new();
+        let inner_area = block.inner(popup_area);
+        f.render_widget(block, popup_area);
+
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(1), // Spacer
+                Constraint::Fill(1),   // Dynamic Sections
+                Constraint::Length(1), // Footer
+            ])
+            .split(inner_area);
+
+        // Sections Container
+        let section_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(45), // Top Section
+                Constraint::Percentage(10), // Gap
+                Constraint::Percentage(45), // Bottom Section
+            ])
+            .split(chunks[1]);
 
         match context {
             AppMode::Overview => {
-                help_lines.push(String::from(" [a] : New Notebook     [e] : Edit Notebook"));
-                help_lines.push(String::from(" [r] : Rename Notebook  [d] : Delete Notebook"));
-                help_lines.push(String::from(" [Enter]: Open          [q] : Quit"));
+                Self::render_section(f, section_chunks[0], "Notebooks", 
+                    &["[a]: New Notebook", "[r]: Rename Notebook", "[Enter]: Open Notebook"],
+                    &["[e]: Edit Details", "[d]: Delete Notebook"]
+                );
+                Self::render_section(f, section_chunks[2], "Navigation", 
+                    &["[h/l]: Move left/right", "[q]: Quit application"],
+                    &["[j/k]: Move up/down", "[?]: Toggle help"]
+                );
             }
             AppMode::NotebookDetail => {
-                help_lines.push(String::from(" [S-H/L]: Move Task     [S-J/K]: Move Subtask"));
-                help_lines.push(String::from(" [A/I]: Task Add/Ins    [a/i]: Subtask Add/Ins"));
-                help_lines.push(String::from(" [r]  : Rename Task     [e]  : Rename Subtask"));
-                help_lines.push(String::from(" [D]  : Delete Task     [d]  : Delete Subtask"));
-                help_lines.push(String::from(" [X]  : Toggle Task     [x]  : Toggle Subtask"));
-                help_lines.push(String::from(" [E]  : Full Inspector  [Esc]: Back"));
+                Self::render_section(f, section_chunks[0], "Tasks", 
+                    &["[A/I]: Add after/before", "[D]: Delete task", "[E/Enter]: Inspector"],
+                    &["[r]: Rename task", "[X]: Toggle completion", "[S-H/L]: Move Task"]
+                );
+                Self::render_section(f, section_chunks[2], "Subtasks", 
+                    &["[a/i]: Add after/before", "[d]: Delete subtask"],
+                    &["[e]: Rename subtask", "[x]: Toggle status", "[S-J/K]: Move Subtask"]
+                );
             }
             _ => {
-                help_lines.push(String::from(" [Tab]: Next Field      [S-Tab]: Prev Field"));
-                help_lines.push(String::from(" [Enter]: Add Item      [Ctrl-S]: Save All"));
-                help_lines.push(String::from(" [Esc]: Cancel Changes"));
+                Self::render_section(f, section_chunks[0], "Fields", 
+                    &["[Tab]: Next field", "[Enter]: Next / Add item"],
+                    &["[S-Tab]: Previous field"]
+                );
+                Self::render_section(f, section_chunks[2], "Actions", 
+                    &["[Ctrl-S]: Save and exit"],
+                    &["[Esc]: Discard / Back"]
+                );
             }
         }
-        
-        help_lines.push(String::new());
-        help_lines.push(String::from(" Press any key to close help "));
 
-        let content = Paragraph::new(help_lines.join("
-"))
-            .block(block)
-            .style(Style::default().fg(tailwind::WHITE));
+        // Footer
+        f.render_widget(
+            Paragraph::new("Press any key to close")
+                .alignment(Alignment::Center)
+                .style(Style::default().fg(tailwind::AMBER.c400).add_modifier(Modifier::ITALIC)),
+            chunks[2],
+        );
+    }
 
-        f.render_widget(content, popup_area);
+    fn render_section(f: &mut Frame, area: Rect, title: &str, left: &[&str], right: &[&str]) {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(1), // Header
+                Constraint::Min(0),    // Columns
+            ])
+            .split(area);
+
+        // Header
+        f.render_widget(
+            Paragraph::new(format!("[ {} ]", title))
+                .alignment(Alignment::Center)
+                .style(Style::default().fg(tailwind::AMBER.c400).add_modifier(Modifier::BOLD)),
+            chunks[0],
+        );
+
+        // Columns
+        let columns = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(5),  // Margin
+                Constraint::Percentage(45), // Left Column
+                Constraint::Percentage(45), // Right Column
+                Constraint::Percentage(5),  // Margin
+            ])
+            .split(chunks[1]);
+
+        f.render_widget(Paragraph::new(left.join("\n")), columns[1]);
+        f.render_widget(Paragraph::new(right.join("\n")), columns[2]);
+    }
+
+    fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {
+        let popup_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Min(0),
+                Constraint::Length(height),
+                Constraint::Min(0),
+            ])
+            .split(r);
+
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Min(0),
+                Constraint::Length(width),
+                Constraint::Min(0),
+            ])
+            .split(popup_layout[1])[1]
     }
 }
