@@ -81,6 +81,16 @@ impl RenamePopup {
                 }
                 None
             }
+            KeyCode::Home => {
+                self.is_first_input = false;
+                self.cursor_pos = 0;
+                None
+            }
+            KeyCode::End => {
+                self.is_first_input = false;
+                self.cursor_pos = self.input.len();
+                None
+            }
             KeyCode::Char(c) => {
                 if self.is_first_input {
                     self.input.clear();
