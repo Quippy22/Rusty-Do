@@ -46,7 +46,7 @@ impl HelpPopup {
             }
             _ => {
                 help_lines.push(String::from(" [Tab]: Next Field      [S-Tab]: Prev Field"));
-                help_lines.push(String::from(" [Enter]: Add Item      [Alt-Enter]: Save All"));
+                help_lines.push(String::from(" [Enter]: Add Item      [Ctrl-S]: Save All"));
                 help_lines.push(String::from(" [Esc]: Cancel Changes"));
             }
         }

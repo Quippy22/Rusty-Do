@@ -97,16 +97,19 @@ impl Inspector {
 
         let alt = key.modifiers.contains(KeyModifiers::ALT);
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 
         match key.code {
             // -- Submit --
+            KeyCode::Char('s') if ctrl => {
+                if !self.title_input.trim().is_empty() {
+                    self.flush_task_buffer();
+                    return Some(InspectorAction::Submit);
+                }
+            }
             KeyCode::Enter if alt => {
                 if !self.title_input.trim().is_empty() {
-                    // Flush the task buffer before submitting
-                    if !self.task_input.trim().is_empty() {
-                        self.list_items.push(self.task_input.clone());
-                        self.task_input.clear();
-                    }
+                    self.flush_task_buffer();
                     return Some(InspectorAction::Submit);
                 }
             }
@@ -145,10 +148,7 @@ impl Inspector {
                     }
                 }
                 InspectField::Contents => {
-                    if !self.task_input.trim().is_empty() {
-                        self.list_items.push(self.task_input.clone());
-                        self.task_input.clear();
-                    }
+                    self.flush_task_buffer();
                 }
             },
 
@@ -181,6 +181,13 @@ impl Inspector {
         }
 
         None
+    }
+
+    fn flush_task_buffer(&mut self) {
+        if !self.task_input.trim().is_empty() {
+            self.list_items.push(self.task_input.clone());
+            self.task_input.clear();
+        }
     }
 
     pub fn is_empty(&self) -> bool {

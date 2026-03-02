@@ -51,7 +51,7 @@ Rusty-Do organizes tasks into a three-tier hierarchy:
 ### Inspector (Add/Edit Mode)
 - `Tab` / `Shift+Tab` : Cycle between Title, Description, and List fields.
 - `Enter` : Add a new entry to the list field (while focused on List).
-- `Alt + Enter` : **Submit** all changes and save.
+- `Ctrl + S` / `Alt + Enter` : **Submit** all changes and save.
 - `Esc` : Cancel and discard changes.
 
 ## ✨ Features
