@@ -1,6 +1,5 @@
 # 🦀 Rusty-Do
 
----
 
 **Rusty-Do** is a minimal, Vim-inspired terminal planner designed for hierarchical task organization. 
 

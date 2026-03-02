@@ -177,7 +177,7 @@ impl RenamePopup {
             let suffix = &self.input[self.cursor_pos..];
             Line::from(vec![
                 Span::raw(prefix),
-                Span::styled("|", Style::default().fg(Color::White)),
+                Span::styled("▎", Style::default().fg(Color::White)),
                 Span::raw(suffix),
             ])
         };
