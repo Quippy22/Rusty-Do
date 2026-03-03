@@ -147,20 +147,20 @@ impl Inspector {
         let description_block_inner = description_block.inner(chunks[1]);
         f.render_widget(description_block, chunks[1]);
 
-        let desc_display = match &self.mode {
-            InspectMode::View => {
-                let trimmed = self.desc_input.trim_start();
-                if trimmed.starts_with("!markdown") {
-                    let content = trimmed
-                        .strip_prefix("!markdown")
-                        .unwrap_or(&self.desc_input)
-                        .trim_start();
-                    from_str(content)
-                } else {
-                    Text::from(self.desc_input.as_str())
-                }
-            }
-            InspectMode::Edit | InspectMode::Add => {
+        let markdown_buffer = if self.mode == InspectMode::View && self.desc_input.trim_start().starts_with("!markdown") {
+            let content = self.desc_input.trim_start()
+                .strip_prefix("!markdown")
+                .unwrap_or(&self.desc_input)
+                .trim_start();
+            Some(content.replace("\n", "\n\n"))
+        } else {
+            None
+        };
+
+        let desc_display = match (&self.mode, &markdown_buffer) {
+            (InspectMode::View, Some(md)) => from_str(md),
+            (InspectMode::View, None) => Text::from(self.desc_input.as_str()),
+            (InspectMode::Edit | InspectMode::Add, _) => {
                 if self.focused_field == InspectField::Description {
                     let (prefix, suffix) = self.desc_input.split_at(self.cursor_pos);
                     Text::from(format!("{}▎{}", prefix, suffix))
