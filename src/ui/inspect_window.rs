@@ -3,8 +3,10 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::palette::tailwind,
+    text::Text,
     widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap},
 };
+use tui_markdown::from_str;
 
 #[derive(PartialEq, Clone)]
 pub enum InspectMode {
@@ -386,14 +388,19 @@ impl Inspector {
         let description_block_inner = description_block.inner(chunks[1]);
         f.render_widget(description_block, chunks[1]);
 
-        let desc_display =
-            if self.focused_field == InspectField::Description && self.mode != InspectMode::View {
-                let prefix = &self.desc_input[..self.cursor_pos];
-                let suffix = &self.desc_input[self.cursor_pos..];
-                format!("{}▎{}", prefix, suffix)
-            } else {
-                self.desc_input.clone()
-            };
+        let desc_display = match &self.mode {
+            InspectMode::View => from_str(&self.desc_input),
+            InspectMode::Edit | InspectMode::Add => {
+                if self.focused_field == InspectField::Description {
+                    let prefix = &self.desc_input[..self.cursor_pos];
+                    let suffix = &self.desc_input[self.cursor_pos..];
+                    let text: Text = Text::from(format!("{}▎{}", prefix, suffix));
+                    text
+                } else {
+                    Text::from(self.desc_input.to_string())
+                }
+            }
+        };
         let desc_paragraph = Paragraph::new(desc_display).wrap(Wrap { trim: true });
         f.render_widget(desc_paragraph, description_block_inner);
 
