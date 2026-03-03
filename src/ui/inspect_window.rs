@@ -44,6 +44,7 @@ use crate::models::notebook::Notebook;
 use crate::models::task::Task;
 
 impl Inspector {
+    // -- Setup --
     pub fn new(
         mode: InspectMode,
         title_input: String,
@@ -93,6 +94,116 @@ impl Inspector {
             cursor_pos,
         }
     }
+
+    // -- Rendering --
+    pub fn render(&mut self, f: &mut Frame, area: Rect) {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3),      // Title (Compact)
+                Constraint::Percentage(30), // Description
+                Constraint::Fill(1),        // Contents (Rest of the space)
+            ])
+            .split(area);
+
+        // Colors
+        let focused_color = tailwind::ROSE.c500;
+        let default_color = tailwind::WHITE;
+
+        // -- Title --
+        let title_block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(match &self.focused_field {
+                InspectField::Title => focused_color,
+                _ => default_color,
+            })
+            .title("Title")
+            .title_alignment(Alignment::Left);
+
+        let title_block_inner = title_block.inner(chunks[0]);
+        f.render_widget(title_block, chunks[0]);
+
+        let title_display =
+            if self.focused_field == InspectField::Title && self.mode != InspectMode::View {
+                let (prefix, suffix) = self.title_input.split_at(self.cursor_pos);
+                format!("{}▎{}", prefix, suffix)
+            } else {
+                self.title_input.clone()
+            };
+        f.render_widget(Paragraph::new(title_display), title_block_inner);
+
+        // -- Description --
+        let description_block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(match &self.focused_field {
+                InspectField::Description => focused_color,
+                _ => default_color,
+            })
+            .title("Description")
+            .title_alignment(Alignment::Left);
+
+        let description_block_inner = description_block.inner(chunks[1]);
+        f.render_widget(description_block, chunks[1]);
+
+        let desc_display = match &self.mode {
+            InspectMode::View => {
+                let trimmed = self.desc_input.trim_start();
+                if trimmed.starts_with("!markdown") {
+                    let content = trimmed
+                        .strip_prefix("!markdown")
+                        .unwrap_or(&self.desc_input)
+                        .trim_start();
+                    from_str(content)
+                } else {
+                    Text::from(self.desc_input.as_str())
+                }
+            }
+            InspectMode::Edit | InspectMode::Add => {
+                if self.focused_field == InspectField::Description {
+                    let (prefix, suffix) = self.desc_input.split_at(self.cursor_pos);
+                    Text::from(format!("{}▎{}", prefix, suffix))
+                } else {
+                    Text::from(self.desc_input.as_str())
+                }
+            }
+        };
+        let desc_paragraph = Paragraph::new(desc_display).wrap(Wrap { trim: true });
+        f.render_widget(desc_paragraph, description_block_inner);
+
+        // -- Contents --
+        let contents_block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(match &self.focused_field {
+                InspectField::Contents => focused_color,
+                _ => default_color,
+            })
+            .title(self.list_label.as_str())
+            .title_alignment(Alignment::Left);
+
+        let contents_block_inner = contents_block.inner(chunks[2]);
+        f.render_widget(contents_block, chunks[2]);
+
+        let mut items: Vec<ListItem> = self
+            .list_items
+            .iter()
+            .map(|name| ListItem::new(format!(" • {}", name)))
+            .collect();
+
+        // Show the current typing buffer if focused
+        if self.focused_field == InspectField::Contents && self.mode != InspectMode::View {
+            let (prefix, suffix) = self.task_input.split_at(self.cursor_pos);
+            items.push(ListItem::new(format!(" • {}▎{}", prefix, suffix)));
+        }
+
+        f.render_widget(List::new(items), contents_block_inner);
+    }
+}
+
+impl Inspector {
+    // -- Input Handling --
     pub fn handle_input(&mut self, key: KeyEvent) -> Option<InspectorAction> {
         if self.mode == InspectMode::View {
             match key.code {
@@ -334,103 +445,5 @@ impl Inspector {
             && self.desc_input.trim().is_empty()
             && self.list_items.is_empty()
             && self.task_input.trim().is_empty()
-    }
-
-    pub fn render(&mut self, f: &mut Frame, area: Rect) {
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(3),      // Title (Compact)
-                Constraint::Percentage(30), // Description
-                Constraint::Fill(1),        // Contents (Rest of the space)
-            ])
-            .split(area);
-
-        // Colors
-        let focused_color = tailwind::ROSE.c500;
-        let default_color = tailwind::WHITE;
-
-        // -- Title --
-        let title_block = Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(match &self.focused_field {
-                InspectField::Title => focused_color,
-                _ => default_color,
-            })
-            .title("Title")
-            .title_alignment(Alignment::Left);
-
-        let title_block_inner = title_block.inner(chunks[0]);
-        f.render_widget(title_block, chunks[0]);
-
-        let title_display =
-            if self.focused_field == InspectField::Title && self.mode != InspectMode::View {
-                let prefix = &self.title_input[..self.cursor_pos];
-                let suffix = &self.title_input[self.cursor_pos..];
-                format!("{}▎{}", prefix, suffix)
-            } else {
-                self.title_input.clone()
-            };
-        f.render_widget(Paragraph::new(title_display), title_block_inner);
-
-        // -- Description --
-        let description_block = Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(match &self.focused_field {
-                InspectField::Description => focused_color,
-                _ => default_color,
-            })
-            .title("Description")
-            .title_alignment(Alignment::Left);
-
-        let description_block_inner = description_block.inner(chunks[1]);
-        f.render_widget(description_block, chunks[1]);
-
-        let desc_display = match &self.mode {
-            InspectMode::View => from_str(&self.desc_input),
-            InspectMode::Edit | InspectMode::Add => {
-                if self.focused_field == InspectField::Description {
-                    let prefix = &self.desc_input[..self.cursor_pos];
-                    let suffix = &self.desc_input[self.cursor_pos..];
-                    let text: Text = Text::from(format!("{}▎{}", prefix, suffix));
-                    text
-                } else {
-                    Text::from(self.desc_input.to_string())
-                }
-            }
-        };
-        let desc_paragraph = Paragraph::new(desc_display).wrap(Wrap { trim: true });
-        f.render_widget(desc_paragraph, description_block_inner);
-
-        // -- Contents --
-        let contents_block = Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(match &self.focused_field {
-                InspectField::Contents => focused_color,
-                _ => default_color,
-            })
-            .title(self.list_label.as_str())
-            .title_alignment(Alignment::Left);
-
-        let contents_block_inner = contents_block.inner(chunks[2]);
-        f.render_widget(contents_block, chunks[2]);
-
-        let mut items: Vec<ListItem> = self
-            .list_items
-            .iter()
-            .map(|name| ListItem::new(format!(" • {}", name)))
-            .collect();
-
-        // Show the current typing buffer if focused
-        if self.focused_field == InspectField::Contents && self.mode != InspectMode::View {
-            let prefix = &self.task_input[..self.cursor_pos];
-            let suffix = &self.task_input[self.cursor_pos..];
-            items.push(ListItem::new(format!(" • {}▎{}", prefix, suffix)));
-        }
-
-        f.render_widget(List::new(items), contents_block_inner);
     }
 }

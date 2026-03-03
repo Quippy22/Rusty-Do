@@ -499,12 +499,14 @@ pub fn sync_inspector_title(app: &mut App, action: PendingAction) {
 }
 
 pub fn submit_inspector(app: &mut App, action: PendingAction) {
+    let description = app.inspector.desc_input.clone();
+
     match action {
         PendingAction::AddNotebook => {
             // Finalize the Ghost
             let id = {
                 let nb = &mut app.notebooks[app.selected_notebook_idx];
-                nb.description = app.inspector.desc_input.clone();
+                nb.description = description;
                 nb.tasks = app
                     .inspector
                     .list_items
@@ -521,7 +523,7 @@ pub fn submit_inspector(app: &mut App, action: PendingAction) {
             if let Some(idx) = app.overview.state.selected() {
                 let nb = &mut app.notebooks[idx];
                 nb.name = app.inspector.title_input.clone();
-                nb.description = app.inspector.desc_input.clone();
+                nb.description = description;
                 let _ = app.storage.save_notebook(nb);
                 let _ = app.storage.update_last_opened(&nb.id);
             }
@@ -534,7 +536,7 @@ pub fn submit_inspector(app: &mut App, action: PendingAction) {
                     let updated = update_task_struct(
                         task,
                         &app.inspector.title_input,
-                        &app.inspector.desc_input,
+                        &description,
                         &app.inspector.list_items,
                     );
                     nb.tasks.insert(idx, updated);
