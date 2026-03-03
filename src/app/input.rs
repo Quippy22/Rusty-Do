@@ -1,17 +1,23 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::actions::{self, PendingAction};
 use crate::app::{App, AppMode};
 
 use crate::ui::{
-    inspect_window::InspectorAction, notebook_detail::NotebookViewAction, overview::OverviewAction,
-    rename::RenamePopup,
+    inspect_window::InspectorAction, notebook_detail::NotebookViewAction,
+    overview::OverviewAction, rename::RenamePopup,
 };
 
 pub fn handle_input(app: &mut App, key: KeyEvent) {
     // -- Global Help Exit --
     if matches!(app.mode, AppMode::Help) {
         actions::exit_help(app);
+        return;
+    }
+
+    // -- Global Theme Switcher --
+    if key.code == KeyCode::Char('t') && key.modifiers.contains(KeyModifiers::ALT) {
+        actions::cycle_theme(app);
         return;
     }
 

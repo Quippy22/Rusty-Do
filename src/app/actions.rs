@@ -204,6 +204,16 @@ pub fn exit_help(app: &mut App) {
     }
 }
 
+pub fn cycle_theme(app: &mut App) {
+    app.theme_idx = (app.theme_idx + 1) % 2;
+    let new_theme = match app.theme_idx {
+        0 => crate::ui::theme::Theme::default(),
+        1 => crate::ui::theme::Theme::nord(),
+        _ => crate::ui::theme::Theme::default(),
+    };
+    crate::ui::theme::set_theme(new_theme);
+}
+
 // -- Notebook Actions --
 pub fn add_notebook(app: &mut App) {
     app.last_window = app.mode.clone();

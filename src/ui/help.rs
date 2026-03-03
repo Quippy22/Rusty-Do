@@ -54,7 +54,7 @@ impl HelpPopup {
                 );
                 Self::render_section(f, section_chunks[2], "Navigation", 
                     &["[h/l]: Move left/right", "[q]: Quit application"],
-                    &["[j/k]: Move up/down", "[?]: Toggle help"]
+                    &["[j/k]: Move up/down", "[Alt-T]: Cycle theme", "[?]: Toggle help"]
                 );
             }
             AppMode::NotebookDetail => {

@@ -1528,6 +1528,7 @@ dependencies = [
  "color-eyre",
  "crossterm",
  "directories",
+ "once_cell",
  "ratatui",
  "serde",
  "serde_json",
