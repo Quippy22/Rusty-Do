@@ -2,12 +2,13 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style,
+    style::{Style, Modifier},
     widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
 };
 
 use crate::models::notebook::Notebook;
 use crate::ui::inspect_window::{InspectMode, Inspector};
+use crate::ui::theme::theme;
 
 #[derive(Clone)]
 pub struct Overview {
@@ -65,10 +66,11 @@ impl Overview {
 
         // 1. Render List
         let notebooks_block = Block::default()
-            .title("Notebooks")
+            .title(" Notebooks ")
             .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
-            .border_type(BorderType::Rounded);
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(theme().border_unfocused));
 
         let notebooks: Vec<ListItem> = self
             .notebooks
@@ -82,7 +84,7 @@ impl Overview {
 
         let notebook_list = List::new(notebooks)
             .highlight_symbol("> ")
-            .highlight_style(style::palette::tailwind::ROSE.c500)
+            .highlight_style(Style::default().fg(theme().highlight).add_modifier(Modifier::BOLD))
             .block(notebooks_block);
         f.render_stateful_widget(notebook_list, list_area, &mut self.state);
 
@@ -97,7 +99,8 @@ impl Overview {
             let empty_block = Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .title("Details")
+                .border_style(Style::default().fg(theme().border_unfocused))
+                .title(" Details ")
                 .title_alignment(Alignment::Left);
             f.render_widget(
                 Paragraph::new("No notebooks found.").block(empty_block),

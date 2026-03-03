@@ -1,11 +1,12 @@
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Style, palette::tailwind, Modifier},
+    style::{Style, Modifier},
     widgets::{Block, BorderType, Clear, Paragraph},
 };
 
 use crate::app::AppMode;
+use crate::ui::theme::theme;
 
 pub struct HelpPopup;
 
@@ -21,7 +22,7 @@ impl HelpPopup {
             .title(" Help - Keybindings ")
             .title_alignment(Alignment::Center)
             .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(tailwind::AMBER.c400));
+            .border_style(Style::default().fg(theme().title_secondary));
 
         let inner_area = block.inner(popup_area);
         f.render_widget(block, popup_area);
@@ -82,7 +83,7 @@ impl HelpPopup {
         f.render_widget(
             Paragraph::new("Press any key to close")
                 .alignment(Alignment::Center)
-                .style(Style::default().fg(tailwind::AMBER.c400).add_modifier(Modifier::ITALIC)),
+                .style(Style::default().fg(theme().title_secondary).add_modifier(Modifier::ITALIC)),
             chunks[2],
         );
     }
@@ -100,7 +101,7 @@ impl HelpPopup {
         f.render_widget(
             Paragraph::new(format!("[ {} ]", title))
                 .alignment(Alignment::Center)
-                .style(Style::default().fg(tailwind::AMBER.c400).add_modifier(Modifier::BOLD)),
+                .style(Style::default().fg(theme().title_secondary).add_modifier(Modifier::BOLD)),
             chunks[0],
         );
 

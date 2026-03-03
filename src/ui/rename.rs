@@ -2,45 +2,40 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Style, palette::tailwind},
+    style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, BorderType, Clear, Paragraph},
+    widgets::{Block, BorderType, Borders, Clear, Paragraph},
 };
 
 use crate::app::actions::PendingAction;
+use crate::ui::theme::theme;
 
 #[derive(Clone)]
 pub struct RenamePopup {
     pub title: String,
-    pub warning: String,
     pub input: String,
-    pub is_first_input: bool,
     pub cursor_pos: usize,
-    pub action: PendingAction,
+    pub is_first_input: bool, // Clear on first char
 }
 
 impl RenamePopup {
-    pub fn new(title: String, initial_value: String, action: PendingAction) -> Self {
-        let len = initial_value.len();
+    pub fn new(title: String, initial_val: String, action: PendingAction) -> Self {
+        let is_first = matches!(
+            action,
+            PendingAction::AddSubtaskBefore | PendingAction::AddSubtaskAfter
+        );
+        let cursor_pos = initial_val.len();
         Self {
             title,
-            cursor_pos: len,
-            input: initial_value,
-            warning: String::new(),
-            is_first_input: true,
-            action,
+            input: initial_val,
+            cursor_pos,
+            is_first_input: is_first,
         }
     }
 
     pub fn handle_input(&mut self, key: KeyEvent) -> Option<bool> {
         match key.code {
-            KeyCode::Enter => {
-                if self.is_valid() {
-                    Some(true)
-                } else {
-                    None
-                }
-            }
+            KeyCode::Enter => Some(true),
             KeyCode::Esc => Some(false),
             KeyCode::Backspace => {
                 if self.is_first_input {
@@ -105,73 +100,36 @@ impl RenamePopup {
         }
     }
 
-    pub fn is_valid(&mut self) -> bool {
-        let trimmed = self.input.trim();
-
-        // 1. Cannot be empty
-        if trimmed.is_empty() {
-            self.warning = "Name cannot be empty.".to_string();
-            return false;
-        }
-
-        // 2. Rules for Notebooks (Filenames)
-        if matches!(self.action, PendingAction::RenameNotebook | PendingAction::AddNotebook) {
-            let illegal_chars = ['/', '\\', '<', '>', ':', '"', '|', '?', '*'];
-            if trimmed.chars().any(|c| illegal_chars.contains(&c)) {
-                self.warning = "Notebook names cannot contain illegal characters (/\\<>:\"|?*).".to_string();
-                return false;
-            }
-        }
-
-        // 3. Length check
-        if trimmed.len() > 200 {
-            self.warning = "Name is too long.".to_string();
-            return false;
-        }
-
-        self.warning = "".to_string();
-        true
-    }
-
     pub fn render(&self, f: &mut Frame, area: Rect) {
-        // 1. Calculate dynamic width (min 50, max 80% of screen)
-        let text_len = self.input.len() as u16 + 10; // +10 for some padding
-        let max_allowed = (area.width as f32 * 0.8) as u16;
-        let width = text_len.clamp(50, max_allowed);
-        
-        let popup_area = self.centered_rect(width, 5, area);
-
-        // 2. Clear the background
+        let width = 50;
+        let height = 5;
+        let popup_area = self.centered_rect(width, height, area);
         f.render_widget(Clear, popup_area);
 
-        // 3. Style the block
-        let block = Block::bordered()
-            .title(self.title.as_str())
-            .title_alignment(Alignment::Center)
+        let block = Block::default()
+            .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Blue));
+            .border_style(Style::default().fg(theme().border_focused))
+            .title(format!(" {} ", self.title))
+            .title_alignment(Alignment::Center);
 
         let inner_area = block.inner(popup_area);
         f.render_widget(block, popup_area);
 
-        // 4. Split the inner area
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1), // Warning
-                Constraint::Min(0),    // Buffer
+                Constraint::Length(1), // Spacer
                 Constraint::Length(1), // Input
+                Constraint::Min(0),    // Padding
             ])
             .split(inner_area);
 
-        // 5. Render Input with Cursor
-        let input_line = if self.is_first_input {
-            Line::from(vec![
-                Span::styled(
-                    &self.input,
-                    Style::default().bg(Color::White).fg(Color::Black),
-                )
-            ])
+        let input_line = if self.input.is_empty() {
+            Line::from(vec![Span::styled(
+                "▎",
+                Style::default().fg(Color::White),
+            )])
         } else {
             let prefix = &self.input[..self.cursor_pos];
             let suffix = &self.input[self.cursor_pos..];
@@ -182,15 +140,7 @@ impl RenamePopup {
             ])
         };
 
-        f.render_widget(Paragraph::new(input_line).alignment(Alignment::Center), chunks[2]);
-
-        // 6. Render Warning
-        if !self.warning.is_empty() {
-            let warning = Paragraph::new(self.warning.as_str())
-                .style(Style::default().fg(tailwind::AMBER.c500))
-                .alignment(Alignment::Center);
-            f.render_widget(warning, chunks[0]);
-        }
+        f.render_widget(Paragraph::new(input_line).alignment(Alignment::Center), chunks[1]);
     }
 
     fn centered_rect(&self, width: u16, height: u16, r: Rect) -> Rect {

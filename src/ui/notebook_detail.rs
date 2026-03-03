@@ -2,11 +2,13 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
+    style::Style,
     widgets::{Block, BorderType, Borders},
 };
 
 use crate::models::notebook::Notebook;
 use crate::ui::task_column::{TaskColumn, TaskColumnState};
+use crate::ui::theme::theme;
 
 #[derive(Clone)]
 pub struct NotebookDetail {
@@ -62,6 +64,7 @@ impl NotebookDetail {
         let window = Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(theme().border_unfocused))
             .title(notebook_name.as_str())
             .title_alignment(Alignment::Center);
 
@@ -367,7 +370,7 @@ impl NotebookDetail {
                             max_w = w;
                         }
                     }
-                    (max_w.clamp(35, 70) as u16) + 2 // +2 for borders
+                    (max_w.clamp(30, 50) as u16) + 2 // +2 for borders
                 })
                 .collect()
         } else {

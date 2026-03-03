@@ -11,6 +11,7 @@ use crate::storage::{paths::FileSystem, persistence::Persistence};
 use crate::ui::{
     confirm::ConfirmPopup, help::HelpPopup, inspect_window::Inspector,
     notebook_detail::NotebookDetail, overview::Overview, rename::RenamePopup,
+    theme::Theme,
 };
 
 #[derive(Clone)]
@@ -50,6 +51,7 @@ pub struct App {
     pub overview: Overview,
     pub nb_detail: NotebookDetail,
     pub inspector: Inspector,
+    pub theme: Theme,
 }
 
 impl App {
@@ -63,6 +65,9 @@ impl App {
             }
         }
 
+        let theme = Theme::default();
+        crate::ui::theme::init_theme(theme.clone());
+
         Self {
             mode: AppMode::Overview,
             last_window: AppMode::Overview,
@@ -73,6 +78,7 @@ impl App {
             notebooks,
             nb_detail: NotebookDetail::new(None),
             inspector: Inspector::setup(None, None, String::from("Tasks")),
+            theme,
         }
     }
 
@@ -106,20 +112,7 @@ impl App {
             }
 
             m if m.is_popup() => {
-                let over_inspector = match m {
-                    AppMode::Confirm(_, act) | AppMode::Rename(_, act) => matches!(
-                        act,
-                        PendingAction::AddNotebook
-                            | PendingAction::EditNotebook
-                            | PendingAction::AddTaskBefore
-                            | PendingAction::AddTaskAfter
-                            | PendingAction::EditTask
-                            | PendingAction::InspectTask
-                    ),
-                    _ => false,
-                };
-
-                if over_inspector || matches!(self.last_window, AppMode::Add(_)) {
+                if matches!(self.last_window, AppMode::Add(_)) {
                     self.render_inspector_view(f, area);
                 } else {
                     match &self.last_window {

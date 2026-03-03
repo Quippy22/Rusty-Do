@@ -1,7 +1,7 @@
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     prelude::{Buffer, Rect},
-    style::{Modifier, Style, palette::tailwind},
+    style::{Modifier, Style},
     widgets::{
         Block, BorderType, Borders, List, ListItem, ListState, Paragraph, StatefulWidget, Widget,
         Wrap,
@@ -9,6 +9,7 @@ use ratatui::{
 };
 
 use crate::models::task::Task;
+use crate::ui::theme::theme;
 
 #[derive(Clone)]
 pub struct TaskColumnState {
@@ -38,9 +39,9 @@ impl<'a> StatefulWidget for TaskColumn<'a> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let border_color = if self.is_focused {
-            tailwind::ROSE.c500
+            theme().border_focused
         } else {
-            tailwind::WHITE
+            theme().border_unfocused
         };
 
         let main_block = Block::default()
@@ -75,17 +76,17 @@ impl<'a> StatefulWidget for TaskColumn<'a> {
             .centered()
             .style(
                 Style::default()
-                    .fg(tailwind::SKY.c400)
+                    .fg(theme().title_main)
                     .add_modifier(Modifier::BOLD),
             )
             .wrap(Wrap { trim: true });
         title.render(header[0], buf);
 
-        let completion = String::from(format!("Completion {}", self.task.completion));
+        let completion = format!("Completion {}", self.task.completion);
         let completion_color = if self.task.is_done {
-            tailwind::GREEN.c400
+            theme().completion_done
         } else {
-            tailwind::WHITE
+            theme().completion_pending
         };
         Paragraph::new(completion)
             .alignment(Alignment::Left)
@@ -95,7 +96,7 @@ impl<'a> StatefulWidget for TaskColumn<'a> {
         let counter_text = format!("Task {} of {}", self.index + 1, self.total_tasks);
         Paragraph::new(counter_text)
             .alignment(Alignment::Left)
-            .style(Style::default().fg(tailwind::GRAY.c500))
+            .style(Style::default().fg(theme().help_text))
             .render(header[3], buf);
 
         // -- The Separator --
@@ -105,6 +106,7 @@ impl<'a> StatefulWidget for TaskColumn<'a> {
             .render(inner_chunks[1], buf);
 
         // -- The Body --
+        let wrap_width = area.width.saturating_sub(4) as usize;
         let items: Vec<ListItem> = self
             .task
             .subtasks
@@ -113,15 +115,15 @@ impl<'a> StatefulWidget for TaskColumn<'a> {
                 let symbol = if s.is_done { "[x]" } else { "[ ]" };
                 let full_text = format!("{} {}", symbol, s.name);
 
-                // Wrap text to fit inside the column (max 70 - 4 for borders/padding)
-                let wrapped = wrap_text(&full_text, 66);
+                // Wrap text to fit inside the column
+                let wrapped = wrap_text(&full_text, wrap_width);
                 ListItem::new(wrapped)
             })
             .collect();
 
         let list = List::new(items).highlight_symbol("> ").highlight_style(
             Style::default()
-                .fg(tailwind::ROSE.c500)
+                .fg(theme().highlight)
                 .add_modifier(Modifier::BOLD),
         );
 

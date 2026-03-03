@@ -2,11 +2,11 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::palette::tailwind,
     text::Text,
     widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap},
 };
 use tui_markdown::from_str;
+use crate::ui::theme::theme;
 
 #[derive(PartialEq, Clone)]
 pub enum InspectMode {
@@ -107,8 +107,8 @@ impl Inspector {
             .split(area);
 
         // Colors
-        let focused_color = tailwind::ROSE.c500;
-        let default_color = tailwind::WHITE;
+        let focused_color = theme().border_focused;
+        let default_color = theme().border_unfocused;
 
         // -- Title --
         let title_block = Block::default()

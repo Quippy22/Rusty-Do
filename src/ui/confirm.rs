@@ -8,6 +8,8 @@ use ratatui::{
     widgets::{Block, BorderType, Clear, Paragraph, Wrap},
 };
 
+use crate::ui::theme::theme;
+
 #[derive(Clone)]
 pub struct ConfirmPopup {
     pub title: String,
@@ -66,7 +68,7 @@ impl ConfirmPopup {
             .title(self.title.as_str())
             .title_alignment(Alignment::Center)
             .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Red));
+            .border_style(Style::default().fg(theme().warning));
 
         let inner_area = block.inner(popup_area);
         f.render_widget(block, popup_area);
@@ -98,9 +100,9 @@ impl ConfirmPopup {
         for (i, btn) in self.buttons.iter().enumerate() {
             let display_name = self.format_button_label(btn);
             let style = if i == self.selected_idx {
-                Style::default().bg(Color::White).fg(Color::Black).bold()
+                Style::default().bg(theme().highlight).fg(Color::Black).bold()
             } else {
-                Style::default().fg(Color::Gray)
+                Style::default().fg(theme().border_unfocused)
             };
 
             f.render_widget(
