@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::OnceLock;
 use ratatui::style::Color;
 use ratatui::style::palette::tailwind;
@@ -11,6 +12,7 @@ pub fn theme() -> &'static Theme {
 }
 
 /// Initialize the global theme with a custom configuration.
+/// Should be called once at application startup.
 pub fn init_theme(custom: Theme) {
     let _ = GLOBAL_THEME.set(custom);
 }
@@ -45,9 +47,9 @@ impl Default for Theme {
 }
 
 /// Serializable configuration for user-provided themes.
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Default)]
 pub struct ThemeConfig {
+    pub name: String,
     pub border_focused: Option<String>,
     pub border_unfocused: Option<String>,
     pub title_main: Option<String>,
@@ -60,7 +62,15 @@ pub struct ThemeConfig {
 }
 
 impl Theme {
-    #[allow(dead_code)]
+    pub fn load(path: PathBuf) -> Self {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            if let Ok(config) = serde_json::from_str::<ThemeConfig>(&content) {
+                return Self::from_config(config);
+            }
+        }
+        Self::default()
+    }
+
     pub fn from_config(config: ThemeConfig) -> Self {
         let mut theme = Self::default();
 
@@ -78,7 +88,6 @@ impl Theme {
     }
 }
 
-#[allow(dead_code)]
 fn parse_color(s: &str) -> Option<Color> {
     if s.starts_with('#') {
         let hex = s.trim_start_matches('#');

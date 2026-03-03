@@ -7,6 +7,7 @@ use directories::ProjectDirs;
 
 #[derive(Clone)]
 pub struct FileSystem {
+    pub data_dir: PathBuf,
     pub notebooks_dir: PathBuf,
     pub index_path: PathBuf,
 }
@@ -26,6 +27,7 @@ impl FileSystem {
         fs::create_dir_all(&notebooks_dir)?;
 
         Ok(Self {
+            data_dir,
             notebooks_dir,
             index_path,
         })

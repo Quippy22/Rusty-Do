@@ -51,12 +51,16 @@ pub struct App {
     pub overview: Overview,
     pub nb_detail: NotebookDetail,
     pub inspector: Inspector,
-    pub theme: Theme,
 }
 
 impl App {
     pub fn new(filesystem: FileSystem) -> Self {
         let storage = Persistence::new(filesystem);
+
+        // -- Theme Loading --
+        let theme = Theme::load(storage.fs.data_dir.join("theme.json"));
+        crate::ui::theme::init_theme(theme);
+
         let index = storage.validate_and_sync_index().unwrap_or_default();
         let mut notebooks: Vec<Notebook> = Vec::new();
         for meta in index.notebooks {
@@ -64,9 +68,6 @@ impl App {
                 notebooks.push(nb);
             }
         }
-
-        let theme = Theme::default();
-        crate::ui::theme::init_theme(theme.clone());
 
         Self {
             mode: AppMode::Overview,
@@ -78,7 +79,6 @@ impl App {
             notebooks,
             nb_detail: NotebookDetail::new(None),
             inspector: Inspector::setup(None, None, String::from("Tasks")),
-            theme,
         }
     }
 
