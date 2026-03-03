@@ -1,9 +1,19 @@
 # 🦀 Rusty-Do
 
+---
 
 **Rusty-Do** is a minimal, Vim-inspired terminal planner designed for hierarchical task organization. 
 
 Heavily inspired by the card-and-list mechanics of [Trello](https://trello.com) and the [kanban-tui](https://github.com/fulsomenko/kanban) workflow, it organizes tasks into spatial, side-by-side vertical columns. This layout provides high-level project visibility while maintaining rapid, low-latency interaction and local-first persistence.
+
+## ✨ New in v2.0.0
+- **Professional Markdown**: Opt-in markdown rendering for detailed task descriptions.
+- **Global Theme Engine**: Live theme switching (`Alt+T`) and full JSON customization.
+- **Spatial Reordering**: Move tasks and subtasks on the fly using `Shift + H/J/K/L`.
+- **Compact Layout**: Optimized Kanban columns for maximum visibility on smaller terminals.
+- **Automated Releases**: Native binaries for Linux, macOS, and Windows available on GitHub.
+
+---
 
 ## 🚀 Quick Start
 
@@ -20,44 +30,53 @@ rsdo
 ```
 ### Note: Once inside the app, press `?` at any time to see the full list of keybindings. These are window-dependent and will show relevant keys for your current view.
 
-## 🏗️ The Hierarchy
-Rusty-Do organizes tasks into a three-tier hierarchy:
-1.  **Notebooks**: High-level projects or areas of focus (e.g., "Work", "Home", "Rust-Project").
-2.  **Tasks**: Major milestones or categories within a notebook, displayed as vertical Kanban-style columns.
-3.  **Subtasks**: Granular, actionable items within a task.
+---
 
-## ⌨️ Vim-Inspired Controls
+## 📝 Markdown Support
+Rusty-Do now supports professional markdown rendering in task descriptions.
+- **How to use**: Start any description with the tag **`!markdown`**.
+- **Transparent Editing**: The tag is automatically managed; you only see your clean, formatted notes in View mode.
+- **Supported Syntax**: Headers (`#`), Bold (`**`), Italics (`*`), and Lists are all rendered via the integrated parser.
 
-### Navigation (Global)
+---
+
+## 🎨 Theming
+The app is fully customizable through a global theme engine.
+- **Live Switching**: Press **`Alt + T`** to cycle between built-in presets (Tailwind, Nord).
+- **Custom Themes**: Create a `theme.json` in your data directory (`~/.local/share/rusty-do/`) to define your own colors using Hex codes.
+
+---
+
+## ⌨️ Categorized Controls
+
+### Navigation & Global
 - `h` / `l` : Move Left/Right between Notebooks or Tasks.
 - `j` / `k` : Move Up/Down within lists or subtasks.
+- `Alt + T` : **Cycle Theme** live.
 - `?` : Show the **Help Menu**.
-- `Enter` : Access a selected Notebook or Inspect a Task.
-- `Esc` : Return to the previous screen.
 - `q` : Quit application.
 
+### Movement (Board)
+- `Shift + H / L` : **Swap Task Column** Left or Right.
+- `Shift + J / K` : **Move Subtask** Down or Up.
+
 ### Modification
-- `a` : **Append** a new item (Notebook/Task/Subtask) after the selection.
-- `i` : **Insert** a new item before the selection.
-- `e` : **Edit** the name of the selected item.
-- `E` : Open the **Full Inspector** to edit title, description, and subtasks in split-screen.
+- `A` / `I` : Add Task after/before selection.
+- `a` / `i` : Add Subtask after/before selection.
+- `E` / `Enter` : Open the **Full Inspector** (View/Edit mode).
+- `r` : Rename selected Notebook or Task.
+- `e` : Rename selected Subtask.
 - `D` : **Delete** the selected Task.
 - `d` : **Delete** the selected Subtask.
-- `r` : **Rename** the selected Notebook or Task.
-- `x` : Toggle completion of a **Subtask**.
-- `X` : Toggle completion of an **Entire Task** (requires confirmation).
+- `x` / `X` : Toggle completion status.
 
 ### Inspector (Add/Edit Mode)
-- `Tab` / `Shift+Tab` : Cycle between Title, Description, and List fields.
-- `Enter` : Add a new entry to the list field (while focused on List).
-- `Ctrl + S` / `Alt + Enter` : **Submit** all changes and save.
+- `Tab` / `Shift + Tab` : Cycle between Title, Description, and List fields.
+- `Arrows` / `Home` / `End` : Precise cursor navigation within fields.
+- `Ctrl + S` / `Alt + Enter` : **Submit** and save changes.
 - `Esc` : Cancel and discard changes.
 
-## ✨ Features
-- **Ghost Placeholders**: See your new notebook or task appear in the background in real-time as you type its name.
-- **Smart Sorting**: Your most recently accessed notebooks automatically jump to the top of the list.
-- **XDG Persistence**: Data is stored safely in your standard local data directory (`~/.local/share/rusty-do/` on Linux) as clean, readable JSON.
-- **Zero-Latency UI**: Optimized for high-speed interaction with immediate visual feedback.
+---
 
 ## 🛠️ Built With
 ![Rust](https://img.shields.io/badge/rust-%23E32F26.svg?style=for-the-badge&logo=rust&logoColor=white)
