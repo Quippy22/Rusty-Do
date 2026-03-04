@@ -1,6 +1,5 @@
 # 🦀 Rusty-Do
 
----
 
 **Rusty-Do** is a minimal, Vim-inspired terminal planner designed for hierarchical task organization. 
 
@@ -13,7 +12,6 @@ Heavily inspired by the card-and-list mechanics of [Trello](https://trello.com) 
 - **Compact Layout**: Optimized Kanban columns for maximum visibility on smaller terminals.
 - **Automated Releases**: Native binaries for Linux, macOS, and Windows available on GitHub.
 
----
 
 ## 🚀 Quick Start
 
@@ -30,7 +28,6 @@ rsdo
 ```
 ### Note: Once inside the app, press `?` at any time to see the full list of keybindings. These are window-dependent and will show relevant keys for your current view.
 
----
 
 ## 📝 Markdown Support
 Rusty-Do now supports professional markdown rendering in task descriptions.
@@ -38,14 +35,12 @@ Rusty-Do now supports professional markdown rendering in task descriptions.
 - **Transparent Editing**: The tag is automatically managed; you only see your clean, formatted notes in View mode.
 - **Supported Syntax**: Headers (`#`), Bold (`**`), Italics (`*`), and Lists are all rendered via the integrated parser.
 
----
 
 ## 🎨 Theming
 The app is fully customizable through a global theme engine.
 - **Live Switching**: Press **`Alt + T`** to cycle between built-in presets (Tailwind, Nord).
 - **Custom Themes**: Create a `theme.json` in your data directory (`~/.local/share/rusty-do/`) to define your own colors using Hex codes.
 
----
 
 ## ⌨️ Categorized Controls
 
@@ -76,7 +71,6 @@ The app is fully customizable through a global theme engine.
 - `Ctrl + S` / `Alt + Enter` : **Submit** and save changes.
 - `Esc` : Cancel and discard changes.
 
----
 
 ## 🛠️ Built With
 ![Rust](https://img.shields.io/badge/rust-%23E32F26.svg?style=for-the-badge&logo=rust&logoColor=white)
