@@ -372,9 +372,36 @@ pub fn confirm_success(app: &mut App, action: PendingAction) {
         PendingAction::DeleteTask | PendingAction::DeleteSubtask => {
             if let Some(nb) = app.nb_detail.notebook.clone() {
                 let t_idx = app.nb_detail.selected_task_idx;
-                let s_idx = t_idx.and_then(|i| app.nb_detail.task_states[i].state.selected());
+                let s_idx = t_idx.and_then(|i| app.nb_detail.task_states.get(i).and_then(|ts| ts.state.selected()));
 
                 if let Some(updated) = delete_element(action.clone(), nb, t_idx, s_idx) {
+                    // Sync the nb_detail UI state BEFORE the refresh
+                    if action == PendingAction::DeleteTask {
+                        if let Some(idx) = t_idx {
+                            if idx < app.nb_detail.task_states.len() {
+                                app.nb_detail.task_states.remove(idx);
+                            }
+                            let new_len = updated.tasks.len();
+                            if new_len == 0 {
+                                app.nb_detail.selected_task_idx = None;
+                                app.nb_detail.scroll_offset = 0;
+                            } else {
+                                app.nb_detail.selected_task_idx = Some(idx.min(new_len - 1));
+                                app.nb_detail.scroll_offset = app.nb_detail.scroll_offset.min(new_len - 1);
+                            }
+                        }
+                    } else if action == PendingAction::DeleteSubtask {
+                        if let (Some(ti), Some(si)) = (t_idx, s_idx) {
+                            if ti < updated.tasks.len() {
+                                let new_sub_len = updated.tasks[ti].subtasks.len();
+                                if new_sub_len == 0 {
+                                    app.nb_detail.task_states[ti].state.select(None);
+                                } else {
+                                    app.nb_detail.task_states[ti].state.select(Some(si.min(new_sub_len - 1)));
+                                }
+                            }
+                        }
+                    }
                     app.refresh_nb_detail(updated);
                 }
             }
