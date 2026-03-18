@@ -57,9 +57,16 @@ pub struct App {
 impl App {
     pub fn new(filesystem: FileSystem) -> Self {
         let storage = Persistence::new(filesystem);
+        let settings = storage.load_settings();
 
-        // -- Theme Initialization --
-        let theme = Theme::load(storage.fs.data_dir.join("theme.json"));
+        // -- Theme Loading --
+        let mut theme = Theme::load(storage.fs.data_dir.join("theme.json"));
+
+        // If theme is default (no theme.json), apply the saved preset
+        if theme.name == "Tailwind" && settings.theme_idx == 1 {
+            theme = Theme::nord();
+        }
+
         crate::ui::theme::set_theme(theme);
 
         let index = storage.validate_and_sync_index().unwrap_or_default();
@@ -80,7 +87,7 @@ impl App {
             notebooks,
             nb_detail: NotebookDetail::new(None),
             inspector: Inspector::setup(None, None, String::from("Tasks")),
-            theme_idx: 0,
+            theme_idx: settings.theme_idx,
         }
     }
 

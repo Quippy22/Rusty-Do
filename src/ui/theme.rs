@@ -22,6 +22,7 @@ pub fn set_theme(new_theme: Theme) {
 
 #[derive(Clone, Debug)]
 pub struct Theme {
+    pub name: String,
     pub border_focused: Color,
     pub border_unfocused: Color,
     pub title_main: Color,
@@ -36,6 +37,7 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
+            name: "Tailwind".to_string(),
             border_focused: tailwind::ROSE.c500,
             border_unfocused: tailwind::WHITE,
             title_main: tailwind::SKY.c400,
@@ -52,6 +54,7 @@ impl Default for Theme {
 impl Theme {
     pub fn nord() -> Self {
         Self {
+            name: "Nord".to_string(),
             border_focused: Color::Rgb(136, 192, 208),
             border_unfocused: Color::Rgb(76, 86, 106),
             title_main: Color::Rgb(143, 188, 187),
@@ -75,6 +78,8 @@ impl Theme {
 
     pub fn from_config(config: ThemeConfig) -> Self {
         let mut theme = Self::default();
+        theme.name = config.name;
+
         if let Some(c) = config.border_focused.and_then(|s| parse_color(&s)) { theme.border_focused = c; }
         if let Some(c) = config.border_unfocused.and_then(|s| parse_color(&s)) { theme.border_unfocused = c; }
         if let Some(c) = config.title_main.and_then(|s| parse_color(&s)) { theme.title_main = c; }

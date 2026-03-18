@@ -28,7 +28,7 @@ pub fn handle_input(app: &mut App, key: KeyEvent) {
     }
 
     // -- Global Help Open --
-    if key.code == KeyCode::Char('?') {
+    if key.code == KeyCode::Char('?') && app.mode.can_quit() {
         actions::show_help(app);
         return;
     }

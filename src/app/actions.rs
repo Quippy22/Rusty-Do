@@ -212,6 +212,11 @@ pub fn cycle_theme(app: &mut App) {
         _ => crate::ui::theme::Theme::default(),
     };
     crate::ui::theme::set_theme(new_theme);
+
+    // Persist the choice
+    app.storage.save_settings(&crate::storage::persistence::AppSettings {
+        theme_idx: app.theme_idx,
+    });
 }
 
 // -- Notebook Actions --

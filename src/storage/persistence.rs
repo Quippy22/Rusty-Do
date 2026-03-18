@@ -19,6 +19,11 @@ pub struct StorageIndex {
     pub notebooks: Vec<NotebookMetadata>,
 }
 
+#[derive(Serialize, Deserialize, Default, Debug)]
+pub struct AppSettings {
+    pub theme_idx: usize,
+}
+
 #[derive(Clone)]
 pub struct Persistence {
     pub fs: FileSystem,
@@ -29,6 +34,7 @@ impl Persistence {
         Self { fs }
     }
 
+    // -- Index --
     pub fn load_index(&self) -> Result<StorageIndex> {
         if !self.fs.index_path.exists() {
             return Ok(StorageIndex::default());
@@ -45,6 +51,27 @@ impl Persistence {
         Ok(())
     }
 
+    // -- Settings --
+    pub fn load_settings(&self) -> AppSettings {
+        let path = self.fs.data_dir.join("settings.json");
+        if !path.exists() {
+            return AppSettings::default();
+        }
+
+        fs::read_to_string(path)
+            .ok()
+            .and_then(|content| serde_json::from_str(&content).ok())
+            .unwrap_or_default()
+    }
+
+    pub fn save_settings(&self, settings: &AppSettings) {
+        let path = self.fs.data_dir.join("settings.json");
+        if let Ok(content) = serde_json::to_string_pretty(settings) {
+            let _ = fs::write(path, content);
+        }
+    }
+
+    // -- Notebooks --
     pub fn load_notebook(&self, id: &str) -> Result<Notebook> {
         let path = self.fs.get_notebook_path(id);
         let content = fs::read_to_string(path)?;
